@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 import matplotlib.pyplot as plt
 import io
 import base64
+from collections import defaultdict
 
 @app.route('/')
 @app.route('/index')
@@ -348,8 +349,19 @@ def exercise():
         flash('新的运动记录已添加！')
         return redirect(url_for('exercise'))
     
+    # 统计最近一周每种运动类型的总时长
+    one_week_ago = datetime.utcnow() - timedelta(days=7)
+    exercise_records_week = current_user.exercise_records.filter(ExerciseRecord.timestamp >= one_week_ago).all()
+    duration_by_type = defaultdict(float)
+    for r in exercise_records_week:
+        if r.exercise_type:
+            duration_by_type[r.exercise_type] += r.duration or 0
+    # 转为前端友好格式
+    duration_stats = [
+        {'type': k, 'duration': round(v, 1)} for k, v in duration_by_type.items()
+    ]
     exercise_records = current_user.exercise_records.order_by(ExerciseRecord.timestamp.desc()).all()
-    return render_template('exercise.html', title='运动', form=form, exercise_records=exercise_records)
+    return render_template('exercise.html', title='运动', form=form, exercise_records=exercise_records, duration_stats=duration_stats)
 
 @app.route('/diet', methods=['GET', 'POST'])
 @login_required
