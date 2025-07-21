@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>添加睡眠记录</h1>
+    <form action="" method="post" novalidate>
+        {{ form.hidden_tag() }}
+        <p>
+            {{ form.sleep_time.label }}<br>
+            {{ form.sleep_time(size=32, id="sleep_time_picker") }}<br>
+            {% for error in form.sleep_time.errors %}
+            <span style="color: red;">[{{ error }}]</span>
+            {% endfor %}
+        </p>
+        <p>
+            {{ form.wakeup_time.label }}<br>
+            {{ form.wakeup_time(size=32, id="wakeup_time_picker") }}<br>
+            {% for error in form.wakeup_time.errors %}
+            <span style="color: red;">[{{ error }}]</span>
+            {% endfor %}
+        </p>
+        <p>{{ form.submit() }}</p>
+    </form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    flatpickr("#sleep_time_picker", {
+        enableTime: true,
+        dateFormat: "Y-m-d H:i",
+        locale: "zh"
+    });
+    flatpickr("#wakeup_time_picker", {
+        enableTime: true,
+        dateFormat: "Y-m-d H:i",
+        locale: "zh"
+    });
+</script>
+{% endblock %} 

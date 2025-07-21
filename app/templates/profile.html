@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h2>编辑个人资料</h2>
+    <div class="grid">
+        <div_col="1of2">
+            <form action="" method="post" novalidate>
+                {{ form.hidden_tag() }}
+                <p>
+                    {{ form.username.label }}<br>
+                    {{ form.username(size=32) }}
+                    {% for error in form.username.errors %}
+                    <span style="color: red;">[{{ error }}]</span>
+                    {% endfor %}
+                </p>
+                <p>
+                    {{ form.gender.label }}<br>
+                    {{ form.gender() }}
+                </p>
+                <p>
+                    {{ form.age.label }}<br>
+                    {{ form.age() }}
+                </p>
+                <p>
+                    {{ form.height.label }}<br>
+                    {{ form.height() }}
+                </p>
+                <p>
+                    {{ form.weight.label }}<br>
+                    {{ form.weight() }}
+                </p>
+                <p>{{ form.submit() }}</p>
+            </form>
+        </div>
+        <div_col="1of2">
+            <article>
+                <h4>你的健康数据</h4>
+                {% if current_user.bmi %}
+                    <p><strong>身体质量指数 (BMI):</strong> {{ current_user.bmi }}</p>
+                    <p><small>参考范围：<br>偏瘦: &lt;18.5 | 正常: 18.5-24.9 | 超重: 25-29.9 | 肥胖: &ge;30</small></p>
+                {% else %}
+                    <p>你的年龄、身高和体重等数据能帮助我们更精确地为你计算热量消耗和评估健康状况。</p>
+                    <p>我们承诺会妥善保管你的个人信息。</p>
+                {% endif %}
+            </article>
+        </div>
+    </div>
+{% endblock %} 

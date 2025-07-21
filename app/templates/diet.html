@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="grid">
+    <div_col="1of2">
+        <h2>添加新饮食记录</h2>
+        <form action="{{ url_for('diet') }}" method="post" novalidate>
+            {{ form.hidden_tag() }}
+            <p>
+                {{ form.food_choice.label }}<br>
+                {{ form.food_choice(id="food_choice_select") }}
+            </p>
+            <div id="other_food_fields" style="display: none;">
+                <p>
+                    {{ form.other_food_name.label }}<br>
+                    {{ form.other_food_name() }}
+                </p>
+                <p>
+                    {{ form.other_calories.label }}<br>
+                    {{ form.other_calories() }}
+                </p>
+            </div>
+            <p id="portion_field">
+                {{ form.portion.label }}<br>
+                {{ form.portion() }}
+            </p>
+            <p>
+                {{ form.meal_type.label }}<br>
+                {{ form.meal_type() }}
+            </p>
+            <p>{{ form.submit() }}</p>
+        </form>
+    </div>
+    <div_col="1of2">
+        <h2>历史饮食记录</h2>
+        {% for record in diet_records %}
+        <article style="padding: 0.75rem 1rem;">
+            <div class="grid" style="grid-template-columns: 1fr auto; align-items: center; gap: 1rem;">
+                <p style="margin: 0;">{{ record.timestamp.strftime('%Y-%m-%d') }} {{ record.meal_type }}: {{ record.food_name }} - {% if record.food_name != '其它' %}{{ record.portion }} 克, {% endif %}{{ "%.1f"|format(record.calories) }} 大卡</p>
+                <form action="{{ url_for('delete_diet', record_id=record.id) }}" method="post" onsubmit="return confirm('你确定要删除这条记录吗？');" style="margin: 0;">
+                    <button type="submit" class="secondary outline" style="margin: 0; padding: 0.25rem 0.5rem; font-size: 0.8rem;">删除</button>
+                </form>
+            </div>
+        </article>
+        {% else %}
+        <p>你还没有任何饮食记录。</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const foodChoiceSelect = document.getElementById('food_choice_select');
+        const otherFoodFields = document.getElementById('other_food_fields');
+        const portionField = document.getElementById('portion_field');
+
+        function toggleFields() {
+            if (foodChoiceSelect.value === '其它') {
+                otherFoodFields.style.display = 'block';
+                portionField.style.display = 'none';
+            } else {
+                otherFoodFields.style.display = 'none';
+                portionField.style.display = 'block';
+            }
+        }
+
+        toggleFields();
+        foodChoiceSelect.addEventListener('change', toggleFields);
+    });
+</script>
+{% endblock %} 
