@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>添加饮食记录</h1>
+    <form action="" method="post">
+        {{ form.hidden_tag() }}
+        <p>
+            {{ form.food_name.label }}<br>
+            {{ form.food_name(size=32) }}<br>
+            {% for error in form.food_name.errors %}
+            <span style="color: red;">[{{ error }}]</span>
+            {% endfor %}
+        </p>
+        <p>
+            {{ form.portion.label }}<br>
+            {{ form.portion(size=32) }}<br>
+            {% for error in form.portion.errors %}
+            <span style="color: red;">[{{ error }}]</span>
+            {% endfor %}
+        </p>
+        <p>
+            {{ form.calories.label }}<br>
+            {{ form.calories(size=32) }}<br>
+            {% for error in form.calories.errors %}
+            <span style="color: red;">[{{ error }}]</span>
+            {% endfor %}
+        </p>
+        <p>
+            {{ form.meal_type.label }}<br>
+            {{ form.meal_type() }}<br>
+            {% for error in form.meal_type.errors %}
+            <span style="color: red;">[{{ error }}]</span>
+            {% endfor %}
+        </p>
+        <p>{{ form.submit() }}</p>
+    </form>
+{% endblock %} 

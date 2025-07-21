@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="grid">
+    <div_col="1of2">
+        <h2>添加新睡眠记录</h2>
+        <form action="{{ url_for('sleep') }}" method="post" novalidate>
+            {{ form.hidden_tag() }}
+            <p>
+                {{ form.sleep_time.label }}<br>
+                {{ form.sleep_time(size=32, id="sleep_time_picker") }}
+            </p>
+            <p>
+                {{ form.wakeup_time.label }}<br>
+                {{ form.wakeup_time(size=32, id="wakeup_time_picker") }}
+            </p>
+            <p>{{ form.submit() }}</p>
+        </form>
+        <hr>
+        <h2>睡眠图表</h2>
+        {% if plot_url %}
+            <img src="data:image/png;base64,{{ plot_url }}">
+        {% else %}
+            <p>暂无足够数据生成图表。</p>
+        {% endif %}
+    </div>
+    <div_col="1of2">
+        <h2>历史睡眠记录</h2>
+        {% for record in sleep_records %}
+        <article style="padding: 0.75rem 1rem;">
+            <div class="grid" style="grid-template-columns: 1fr auto; align-items: center; gap: 1rem;">
+                <p style="margin: 0;">从 {{ record.sleep_time.strftime('%Y-%m-%d %H:%M') }} 到 {{ record.wakeup_time.strftime('%Y-%m-%d %H:%M') }} - 时长: {{ "%.2f"|format(record.duration) }} 小时</p>
+                <form action="{{ url_for('delete_sleep', record_id=record.id) }}" method="post" onsubmit="return confirm('你确定要删除这条记录吗？');" style="margin: 0;">
+                    <button type="submit" class="secondary outline" style="margin: 0; padding: 0.25rem 0.5rem; font-size: 0.8rem;">删除</button>
+                </form>
+            </div>
+        </article>
+        {% else %}
+        <p>你还没有任何睡眠记录。</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    flatpickr("#sleep_time_picker", {
+        enableTime: true,
+        dateFormat: "Y-m-d H:i",
+        locale: "zh"
+    });
+    flatpickr("#wakeup_time_picker", {
+        enableTime: true,
+        dateFormat: "Y-m-d H:i",
+        locale: "zh"
+    });
+</script>
+{% endblock %} 

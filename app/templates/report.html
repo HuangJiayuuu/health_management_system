@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <article>
+        <header>
+            <h2>你最近一周的健康报告</h2>
+        </header>
+        
+        <h4>核心数据一览</h4>
+        <ul>
+            <li>周平均睡眠时长: <strong>{{ "%.2f"|format(avg_sleep) }}</strong> 小时/天</li>
+            <li>周日均摄入热量: <strong>{{ "%.1f"|format(avg_calories_eaten) }}</strong> 大卡</li>
+            <li>周日均运动消耗: <strong>{{ "%.1f"|format(avg_calories_burned) }}</strong> 大卡</li>
+            {% if current_user.bmi %}
+            <li>身体质量指数 (BMI): <strong>{{ current_user.bmi }}</strong> ({{ bmi_status }})</li>
+            {% endif %}
+        </ul>
+        
+        <hr>
+
+        <h4>健康建议</h4>
+        {% if advice_list %}
+            <ul>
+            {% for advice in advice_list %}
+                <li>{{ advice }}</li>
+            {% endfor %}
+            </ul>
+        {% else %}
+            <p>暂无建议。</p>
+        {% endif %}
+
+        <footer>
+            <small>报告生成时间: {{ report_time.strftime('%Y-%m-%d %H:%M:%S') }} (北京时间)</small>
+        </footer>
+    </article>
+{% endblock %} 
