@@ -1,5 +1,5 @@
 from app import app, db
-from flask import render_template, flash, redirect, url_for, request, abort
+from flask import jsonify,render_template, flash, redirect, url_for, request, abort
 from app.forms import (LoginForm, RegistrationForm, EditProfileForm, GoalForm, 
                        AddExerciseGoalForm, SleepForm, ExerciseForm, DietForm)
 from flask_login import current_user, login_user, logout_user, login_required
@@ -10,6 +10,9 @@ import matplotlib.pyplot as plt
 import io
 import base64
 from collections import defaultdict
+import os
+import requests
+from flask import session
 
 @app.route('/')
 @app.route('/index')
@@ -515,3 +518,65 @@ def delete_diet(record_id):
     db.session.commit()
     flash('饮食记录已删除！')
     return redirect(url_for('diet'))
+
+@app.route('/get_deepseek_advice', methods=['POST'])
+@login_required
+def get_deepseek_advice():
+    one_week_ago = datetime.utcnow() - timedelta(days=7)
+    sleep_records = current_user.sleep_records.filter(SleepRecord.sleep_time >= one_week_ago).all()
+    exercise_records = current_user.exercise_records.filter(ExerciseRecord.timestamp >= one_week_ago).all()
+    diet_records = current_user.diet_records.filter(DietRecord.timestamp >= one_week_ago).all()
+
+    total_sleep_hours = sum(r.duration for r in sleep_records)
+    avg_sleep = total_sleep_hours / 7 if sleep_records else 0
+    
+    total_calories_burned = sum(r.calories_burned for r in exercise_records)
+    avg_calories_burned = total_calories_burned / 7 if exercise_records else 0
+    
+    total_calories_eaten = sum(r.calories for r in diet_records)
+    avg_calories_eaten = total_calories_eaten / 7 if diet_records else 0
+
+    prompt = "请根据以下健康数据给出健康评估和建议，数据包含周平均睡眠时长（小时/天）、身体质量指数（BMI）、周日均摄入热量（大卡）和周日均运动消耗（大卡）。并且给出食谱建议。"
+    # 构造符合 DeepSeek API 格式的请求数据
+    messages = [
+        {
+            "role": "user",
+            "content": f"{prompt} 周平均睡眠时长：{avg_sleep} 小时/天，BMI：{current_user.bmi if current_user.bmi else '无数据'}，周日均摄入热量：{avg_calories_eaten} 大卡，周日均运动消耗：{avg_calories_burned} 大卡"
+        }
+    ]
+
+    payload = {
+        "model": "deepseek-chat",
+        "messages": messages,
+        "max_tokens": 1000,
+        "temperature": 0.3
+    }
+
+    # 调用 DeepSeek API
+    deepseek_api_key = 'sk-19cca959be3243b89eb3e2f5e986e78b'
+    deepseek_advice = None
+    if deepseek_api_key:
+        headers = {
+            "Authorization": f"Bearer {deepseek_api_key}",
+            "Content-Type": "application/json"
+        }
+        try:
+            response = requests.post(
+                "https://api.deepseek.com/v1/chat/completions",
+                json=payload,
+                headers=headers
+            )
+            response.raise_for_status()
+            deepseek_response = response.json()
+            # 根据 DeepSeek API 返回结构提取建议
+            if 'choices' in deepseek_response and deepseek_response['choices']:
+                message_content = deepseek_response['choices'][0]['message']['content']
+                deepseek_advice = message_content
+        except requests.RequestException as e:
+            app.logger.error(f"调用 DeepSeek API 出错: {e}")
+            deepseek_advice = "无法获取 DeepSeek 的健康评估建议，请稍后重试。"
+    else:
+        deepseek_advice = "未配置 DeepSeek API 密钥，无法获取额外的健康评估建议。"
+
+    session['deepseek_advice'] = deepseek_advice
+    return jsonify({'advice': deepseek_advice})

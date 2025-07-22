@@ -1,36 +1,99 @@
 {% extends "base.html" %}
-
 {% block content %}
-    <article>
-        <header>
-            <h2>你最近一周的健康报告</h2>
-        </header>
-        
-        <h4>核心数据一览</h4>
-        <ul>
-            <li>周平均睡眠时长: <strong>{{ "%.2f"|format(avg_sleep) }}</strong> 小时/天</li>
-            <li>周日均摄入热量: <strong>{{ "%.1f"|format(avg_calories_eaten) }}</strong> 大卡</li>
-            <li>周日均运动消耗: <strong>{{ "%.1f"|format(avg_calories_burned) }}</strong> 大卡</li>
-            {% if current_user.bmi %}
-            <li>身体质量指数 (BMI): <strong>{{ current_user.bmi }}</strong> ({{ bmi_status }})</li>
-            {% endif %}
-        </ul>
-        
-        <hr>
+<article>
+    <header>
+        <h2>你最近一周的健康报告</h2>
+    </header>
 
-        <h4>健康建议</h4>
-        {% if advice_list %}
-            <ul>
-            {% for advice in advice_list %}
-                <li>{{ advice }}</li>
-            {% endfor %}
-            </ul>
-        {% else %}
-            <p>暂无建议。</p>
+    <h4>核心数据一览</h4>
+    <ul>
+        <li>周平均睡眠时长: <strong>{{ "%.2f"|format(avg_sleep) }}</strong> 小时/天</li>
+        <li>周日均摄入热量: <strong>{{ "%.1f"|format(avg_calories_eaten) }}</strong> 大卡</li>
+        <li>周日均运动消耗: <strong>{{ "%.1f"|format(avg_calories_burned) }}</strong> 大卡</li>
+        {% if current_user.bmi %}
+        <li>身体质量指数 (BMI): <strong>{{ current_user.bmi }}</strong> ({{ bmi_status }})</li>
         {% endif %}
+    </ul>
 
-        <footer>
-            <small>报告生成时间: {{ report_time.strftime('%Y-%m-%d %H:%M:%S') }} (北京时间)</small>
-        </footer>
-    </article>
-{% endblock %} 
+    <hr>
+
+    <h4>健康建议</h4>
+    {% if advice_list %}
+        <ul>
+        {% for advice in advice_list %}
+            <li>{{ advice }}</li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>暂无建议。</p>
+    {% endif %}
+
+    <!-- 获取 DeepSeek 建议按钮 -->
+    <button id="get-deepseek-advice">获取 DeepSeek 健康评估建议</button>
+
+    <!-- 加载提示与动画 -->
+    <div id="loading-indicator" style="display: none; margin-top: 1em;">
+        <span>正在获取建议，请稍候...</span>
+        <span class="spinner" style="
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            margin-left: 8px;
+            border: 2px solid #ccc;
+            border-top: 2px solid #4CAF50;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;"></span>
+    </div>
+
+    <!-- 渲染 DeepSeek 建议内容 -->
+    <div id="deepseek-advice-container" style="margin-top: 1em;"></div>
+
+    <footer>
+        <small>报告生成时间: {{ report_time.strftime('%Y-%m-%d %H:%M:%S') }} (北京时间)</small>
+    </footer>
+</article>
+
+<!-- 引入 marked.js 用于渲染 Markdown -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+<!-- 加载动画样式 -->
+<style>
+@keyframes spin {
+    0%   { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+</style>
+
+<!-- 异步获取建议的脚本 -->
+<script>
+document.getElementById('get-deepseek-advice').addEventListener('click', async function () {
+    const container = document.getElementById('deepseek-advice-container');
+    const loading = document.getElementById('loading-indicator');
+
+    // 清空内容 + 显示加载动画
+    container.innerHTML = '';
+    loading.style.display = 'block';
+
+    try {
+        const response = await fetch('/get_deepseek_advice', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            const markdownHtml = marked.parse(data.advice);
+            container.innerHTML = markdownHtml;
+        } else {
+            container.innerHTML = `<p>获取建议失败，错误码: ${response.status}</p>`;
+        }
+    } catch (error) {
+        container.innerHTML = `<p>发生错误：${error}</p>`;
+    } finally {
+        loading.style.display = 'none';
+    }
+});
+</script>
+{% endblock %}
