@@ -1,9 +1,10 @@
 {% extends "base.html" %}
 
 {% block content %}
+<article class="main-card">
 <div class="grid">
     <div_col="1of2">
-        <h2>添加新饮食记录</h2>
+        <h2 class="main-title">添加新饮食记录</h2>
         <form action="{{ url_for('diet') }}" method="post" novalidate>
             {{ form.hidden_tag() }}
             <p>
@@ -47,6 +48,7 @@
         {% endfor %}
     </div>
 </div>
+</article>
 {% endblock %}
 
 {% block scripts %}

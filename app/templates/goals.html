@@ -1,8 +1,9 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <h2>通用健康目标</h2>
-    <p>设定你长期的睡眠和饮食基准目标。</p>
+<article class="main-card">
+    <h2 class="main-title">通用健康目标</h2>
+    <p class="main-subtitle">设定你长期的睡眠和饮食基准目标。</p>
     <form action="" method="post">
         {{ form.hidden_tag() }}
         <div class="grid">
@@ -66,7 +67,7 @@
             {{ add_exercise_goal_form.add_exercise_goal(class_="contrast") }}
         </form>
     </details>
-
+</article>
 {% endblock %}
 
 {% block scripts %}

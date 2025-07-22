@@ -18,6 +18,7 @@ def index():
     user_goal = current_user.goal
     exercise_goals = current_user.exercise_goals.all()
     progress_data = {}
+    alert_messages = []  # 新增：用于存放预警信息
     
     one_week_ago = datetime.utcnow() - timedelta(days=7)
 
@@ -71,11 +72,57 @@ def index():
                 'target': goal.target_value,
                 'progress': (current_value / goal.target_value) * 100 if goal.target_value > 0 else 0
             })
-            
+    
+    # ========== 异常预警功能实现 ==========
+    from datetime import date
+    # 1. 睡眠预警：连续3天睡眠不足
+    if user_goal and user_goal.target_sleep_hours:
+        # 获取最近7天的日期
+        today = datetime.utcnow().date()
+        last_7_days = [today - timedelta(days=i) for i in range(6, -1, -1)]  # 从7天前到今天
+        # 获取最近8天的睡眠记录
+        records = current_user.sleep_records.filter(SleepRecord.sleep_time >= datetime.utcnow() - timedelta(days=8)).all()
+        # 统计每天的睡眠时长
+        daily_sleep = {d: 0 for d in last_7_days}
+        for r in records:
+            d = r.sleep_time.date()
+            if d in daily_sleep:
+                daily_sleep[d] += r.duration
+        # 检查连续3天低于目标
+        min_sleep = min(user_goal.target_sleep_hours, 7)  # 以目标和7小时中较小者为阈值
+        count = 0
+        for d in last_7_days:
+            if daily_sleep[d] < min_sleep:
+                count += 1
+                if count >= 3:
+                    alert_messages.append(f"警告：你已连续{count}天睡眠不足（低于{min_sleep}小时），请注意休息！")
+                    break
+            else:
+                count = 0
+    # 2. 运动预警：连续3天运动为0
+    # 统计每天运动时长
+    exercise_records = current_user.exercise_records.filter(ExerciseRecord.timestamp >= datetime.utcnow() - timedelta(days=8)).all()
+    daily_exercise = {d: 0 for d in last_7_days}
+    for r in exercise_records:
+        d = r.timestamp.date()
+        if d in daily_exercise:
+            daily_exercise[d] += r.duration or 0
+    count = 0
+    for d in last_7_days:
+        if daily_exercise[d] == 0:
+            count += 1
+            if count >= 3:
+                alert_messages.append(f"警告：你已连续{count}天没有运动，建议适当锻炼保持健康！")
+                break
+        else:
+            count = 0
+    # ========== 预警功能结束 ==========
+
     return render_template('index.html', title='主页', 
                            general_goal=user_goal, 
                            general_progress=progress_data,
-                           exercise_progress_list=exercise_progress_list)
+                           exercise_progress_list=exercise_progress_list,
+                           alert_messages=alert_messages)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():

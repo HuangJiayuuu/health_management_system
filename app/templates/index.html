@@ -1,56 +1,170 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <article>
-        <header>
-            <h2>你好, {{ current_user.username }}!</h2>
-            <p>欢迎回到你的健康仪表盘。这是你过去一周的目标完成情况：</p>
-        </header>
+    <article class="main-card">
+        <h2 class="main-title">你好,{{ current_user.username }}!</h2>
+        <p class="main-subtitle">欢迎回到你的健康仪表盘。</p>
+
+        {% if alert_messages %}
+            <article style="background: #ffeaea; color: #b30000; border: 1px solid #ffb3b3; padding: 1em; margin-bottom: 2em;">
+                <strong>健康预警：</strong>
+                <ul>
+                {% for msg in alert_messages %}
+                    <li>{{ msg }}</li>
+                {% endfor %}
+                </ul>
+            </article>
+            <hr style="margin-bottom: 2em;">
+        {% endif %}
 
         {% if not general_goal and not exercise_progress_list %}
             <p>你还没有设定任何健康目标。</p>
             <a href="{{ url_for('goals') }}" role="button">点击这里去设定你的第一个目标！</a>
         {% else %}
             
-            {% if general_goal %}
-            <div class="grid">
-                {% if general_progress.sleep %}
-                <div>
-                    <label for="sleep_progress">每日平均睡眠</label>
-                    <progress id="sleep_progress" value="{{ general_progress.sleep.progress|int }}" max="100"></progress>
-                    <small>当前: {{ "%.1f"|format(general_progress.sleep.current) }} 小时 / 目标: {{ general_progress.sleep.target }} 小时</small>
+            {% if general_goal or exercise_progress_list %}
+                <div class="grid">
+                    {% if general_goal %}
+                    <section>
+                        <h4>本周通用目标完成情况</h4>
+                        {# 睡眠进度条 #}
+                        {% if general_progress.sleep %}
+                        <div style="margin: 12px 0;">
+                            <label>每日平均睡眠</label>
+                            <div style="background:#eee; border-radius:8px; width:100%; height:10px; overflow:hidden; margin:8px 0;">
+                              <div style="background:{{ '#e74c3c' if general_progress.sleep.current < general_progress.sleep.target else '#4caf50' }}; width:{{ general_progress.sleep.progress|int }}%; height:100%; transition:width 0.5s;"></div>
+                            </div>
+                            <small>
+                              当前: {{ "%.1f"|format(general_progress.sleep.current) }} 小时 / 目标: {{ general_progress.sleep.target }} 小时
+                              {% if general_progress.sleep.current < general_progress.sleep.target %}
+                                <span style="color:#e74c3c; font-weight:bold;">（未达标）</span>
+                              {% endif %}
+                            </small>
+                        </div>
+                        <br>
+                        {% endif %}
+                        {# 热量摄入圆环图 #}
+                        {% if general_progress.calories %}
+                        <div>
+                            <label for="calorie_donut">每日平均热量摄入</label>
+                            <div id="calorie_donut" style="width:180px;height:180px;"></div>
+                            <small>当前: {{ "%.0f"|format(general_progress.calories.current) }} 大卡 / 目标: {{ general_progress.calories.target }} 大卡
+                            {% if general_progress.calories.current > general_progress.calories.target %}
+                                <span style="color:#e74c3c; font-weight:bold;">（热量超标）</span>
+                            {% endif %}
+                            </small>
+                        </div>
+                        <br>
+                        {% endif %}
+                    </section>
+                    {% endif %}
+                    {% if exercise_progress_list %}
+                    <section>
+                        <h4>本周运动目标</h4>
+                        {% for item in exercise_progress_list %}
+                            <div style="margin: 12px 0;">
+                                <label>
+                                    {{ item.goal.goal_type|replace('duration', '总时长')|replace('frequency', '总次数')|replace('calories', '总消耗热量') }}
+                                    {% if item.goal.exercise_type %}({{ item.goal.exercise_type }}){% endif %}
+                                </label>
+                                {% if item.goal.goal_type == 'duration' or item.goal.goal_type == 'calories' %}
+                                <div style="background:#eee; border-radius:8px; width:100%; height:10px; overflow:hidden; margin:8px 0;">
+                                  <div style="background:{{ '#e74c3c' if item.current < item.target else '#4caf50' }}; width:{{ item.progress|int }}%; height:100%; transition:width 0.5s;"></div>
+                                </div>
+                                <small>
+                                    当前: {{ "%.1f"|format(item.current) }} / 目标: {{ item.target }}{% if item.goal.goal_type == 'duration' %}分钟{% elif item.goal.goal_type == 'calories' %}大卡{% endif %}
+                                    {% if item.current < item.target %}
+                                        <span style="color:#e74c3c; font-weight:bold;">（未达标）</span>
+                                    {% endif %}
+                                </small>
+                                {% elif item.goal.goal_type == 'frequency' %}
+                                <span style="display:inline-flex;gap:0.3em;vertical-align:middle;">
+                                {% for i in range(1, item.target|int + 1) %}
+                                    {% if i <= item.current|int %}
+                                        <span class="freq-box checked" data-goal-id="{{ item.goal.id }}" data-index="{{ i }}" style="display:inline-block;width:22px;height:22px;border:2px solid #4caf50;border-radius:4px;text-align:center;line-height:20px;font-size:18px;cursor:pointer;background:#e8f5e9;color:#388e3c;">✔</span>
+                                    {% else %}
+                                        <span class="freq-box" data-goal-id="{{ item.goal.id }}" data-index="{{ i }}" style="display:inline-block;width:22px;height:22px;border:2px solid #bbb;border-radius:4px;text-align:center;line-height:20px;font-size:18px;cursor:pointer;background:#fff;color:#bbb;">□</span>
+                                    {% endif %}
+                                {% endfor %}
+                                </span>
+                                <small>目标: {{ item.target }} 次</small>
+                                {% endif %}
+                            </div>
+                            <br>
+                        {% endfor %}
+                    </section>
+                    {% endif %}
                 </div>
-                {% endif %}
-                {% if general_progress.calories %}
-                <div>
-                    <label for="calorie_progress">每日平均热量摄入</label>
-                    <progress id="calorie_progress" value="{{ general_progress.calories.current }}" max="{{ general_progress.calories.target }}"></progress>
-                    <small>当前: {{ "%.0f"|format(general_progress.calories.current) }} 大卡 / 目标: {{ general_progress.calories.target }} 大卡</small>
-                </div>
-                {% endif %}
-            </div>
-            {% endif %}
-
-            {% if exercise_progress_list %}
-                <hr>
-                <h4>本周运动目标进度</h4>
-                {% for item in exercise_progress_list %}
-                <div>
-                    <label for="exercise_progress_{{ loop.index }}">
-                        {{ item.goal.goal_type|replace('duration', '总时长')|replace('frequency', '总次数')|replace('calories', '总热量') }}
-                        {% if item.goal.exercise_type %}({{ item.goal.exercise_type }}){% endif %}
-                    </label>
-                    <progress id="exercise_progress_{{ loop.index }}" value="{{ item.progress|int }}" max="100"></progress>
-                    <small>
-                        当前: {{ "%.1f"|format(item.current) }} / 目标: {{ item.target }}
-                        {% if item.goal.goal_type == 'duration' %}分钟{% elif item.goal.goal_type == 'frequency' %}次{% elif item.goal.goal_type == 'calories' %}大卡{% endif %}
-                    </small>
-                </div>
-                <br>
-                {% endfor %}
             {% endif %}
 
         {% endif %}
 
     </article>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<script>
+// 热量摄入圆环图
+var hasCalorie = {{ 'true' if general_progress.calories else 'false' }};
+if (hasCalorie) {
+    var donut = echarts.init(document.getElementById('calorie_donut'));
+    var calorieCurrent = {{ general_progress.calories.current|int }};
+    var calorieTarget = {{ general_progress.calories.target|int }};
+    var color = (calorieCurrent > calorieTarget) ? '#e74c3c' : '#4caf50';
+    donut.setOption({
+        series: [{
+            type: 'pie',
+            radius: ['70%', '90%'],
+            avoidLabelOverlap: false,
+            label: {show: false},
+            data: [
+                {value: Math.min(calorieCurrent, calorieTarget), name: '已摄入', itemStyle: {color: color}},
+                {value: Math.max(0, calorieTarget - calorieCurrent), name: '剩余', itemStyle: {color: '#eee'}},
+                {value: Math.max(0, calorieCurrent - calorieTarget), name: '超标', itemStyle: {color: '#e74c3c'}}
+            ]
+        }]
+    });
+}
+</script>
+<script>
+// 频次目标打勾交互
+function openExerciseRecordModal(goalId) {
+    // 这里可以弹窗或跳转到运动记录页面
+    window.location.href = '/exercise';
+}
+document.querySelectorAll('.freq-box').forEach(function(box){
+    box.addEventListener('click', function(){
+        if(!box.classList.contains('checked')){
+            openExerciseRecordModal(box.getAttribute('data-goal-id'));
+        }
+    });
+});
+</script>
+<style>
+.sleep-progress-low { accent-color: #e74c3c; }
+.sleep-progress-ok { accent-color: #4caf50; }
+.freq-box, .freq-box.checked {
+  display: inline-block;
+  width: 32px;
+  height: 32px;
+  border: 2.5px solid #bbb;
+  border-radius: 6px;
+  text-align: center;
+  line-height: 30px;
+  font-size: 26px;
+  cursor: pointer;
+  margin-right: 4px;
+  transition: border-color 0.2s, background 0.2s, color 0.2s;
+}
+.freq-box.checked {
+  border-color: #4caf50;
+  background: #e8f5e9;
+  color: #388e3c;
+}
+.freq-box:hover {
+  border-color: #2196f3;
+}
+</style>
 {% endblock %}
