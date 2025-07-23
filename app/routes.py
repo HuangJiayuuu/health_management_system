@@ -22,6 +22,10 @@ def index():
     exercise_goals = current_user.exercise_goals.all()
     progress_data = {}
     alert_messages = []  # 新增：用于存放预警信息
+
+    from datetime import date
+    today = datetime.utcnow().date()
+    last_7_days = [today - timedelta(days=i) for i in range(6, -1, -1)]  # 提前定义，避免UnboundLocalError
     
     one_week_ago = datetime.utcnow() - timedelta(days=7)
 
@@ -77,12 +81,11 @@ def index():
             })
     
     # ========== 异常预警功能实现 ==========
-    from datetime import date
     # 1. 睡眠预警：连续3天睡眠不足
     if user_goal and user_goal.target_sleep_hours:
         # 获取最近7天的日期
-        today = datetime.utcnow().date()
-        last_7_days = [today - timedelta(days=i) for i in range(6, -1, -1)]  # 从7天前到今天
+        # today = datetime.utcnow().date() # This line is now redundant as today is defined above
+        # last_7_days = [today - timedelta(days=i) for i in range(6, -1, -1)] # This line is now redundant as last_7_days is defined above
         # 获取最近8天的睡眠记录
         records = current_user.sleep_records.filter(SleepRecord.sleep_time >= datetime.utcnow() - timedelta(days=8)).all()
         # 统计每天的睡眠时长
@@ -286,68 +289,26 @@ def sleep():
     
     # GET request logic
     sleep_records = current_user.sleep_records.order_by(SleepRecord.sleep_time.desc()).all()
-    
-    plot_url = None
-    
-    # --- Chart Generation Logic with Full 7-Day Display ---
-    plt.rcParams['font.sans-serif'] = ['SimHei', 'Heiti TC', 'Microsoft JhengHei', 'PingFang TC']
-    plt.rcParams['axes.unicode_minus'] = False
-    
-    # 1. Generate a list of the last 7 logical days
-    today_utc = datetime.utcnow().date()
-    last_7_days = [today_utc - timedelta(days=i) for i in range(7)]
-    
-    # Define the hour when a new "sleep day" starts (4 PM)
-    CUTOFF_HOUR = 16
 
-    # 2. Fetch records and aggregate them by logical date
+    # ECharts 柱状图数据准备
+    today_utc = datetime.utcnow().date()
+    last_7_days = [today_utc - timedelta(days=i) for i in range(6, -1, -1)]
     records_for_plot = current_user.sleep_records.filter(
         SleepRecord.sleep_time >= datetime.utcnow() - timedelta(days=8)
     ).all()
-    
-    daily_sleep = {}
+    daily_sleep = {d: 0 for d in last_7_days}
     for record in records_for_plot:
         record_date = record.sleep_time.date()
-        if record.sleep_time.hour < CUTOFF_HOUR:
-            logical_date = record_date - timedelta(days=1)
-        else:
-            logical_date = record_date
-        daily_sleep[logical_date] = daily_sleep.get(logical_date, 0) + record.duration
+        daily_sleep[record_date] = daily_sleep.get(record_date, 0) + record.duration
+    sleep_dates = [d.strftime('%m-%d') for d in last_7_days]
+    sleep_durations = [round(daily_sleep[d], 2) for d in last_7_days]
 
-    # 3. Create the final dataset, filling missing days with 0
-    plot_data = []
-    for day in reversed(last_7_days): # Plot from oldest to newest
-        plot_data.append(daily_sleep.get(day, 0))
+    # 计算本周平均睡眠时长
+    avg_sleep = round(sum(sleep_durations) / 7, 2) if sleep_durations else 0
+    # 获取用户目标睡眠时长
+    target_sleep_hours = current_user.goal.target_sleep_hours if current_user.goal and current_user.goal.target_sleep_hours else None
 
-    # 4. Generate the plot with the complete 7-day data
-    plt.style.use('fivethirtyeight')
-    dates = [day.strftime('%m-%d') for day in reversed(last_7_days)]
-    durations = plot_data
-
-    fig, ax = plt.subplots(figsize=(8, 4.5))
-    bars = ax.bar(dates, durations, color='skyblue', alpha=0.85)
-    
-    ax.set_xlabel('日期', fontsize=12)
-    ax.set_ylabel('总睡眠时长 (小时)', fontsize=12)
-    ax.set_title('过去一周睡眠记录', fontsize=16, fontweight='bold')
-    
-    ax.yaxis.grid(True, linestyle='--', which='major', color='grey', alpha=0.7)
-    ax.set_axisbelow(True)
-
-    for bar in bars:
-        yval = bar.get_height()
-        if yval > 0: # Only label non-zero bars
-            ax.text(bar.get_x() + bar.get_width()/2.0, yval, f'{yval:.1f}', va='bottom', ha='center', fontsize=10)
-
-    plt.tight_layout()
-    
-    buf = io.BytesIO()
-    fig.savefig(buf, format='png')
-    buf.seek(0)
-    plot_url = base64.b64encode(buf.getvalue()).decode('utf8')
-    # --- End of Chart Generation Logic ---
-
-    return render_template('sleep.html', title='睡眠', form=form, sleep_records=sleep_records, plot_url=plot_url)
+    return render_template('sleep.html', title='睡眠', form=form, sleep_records=sleep_records, sleep_dates=sleep_dates, sleep_durations=sleep_durations, avg_sleep=avg_sleep, target_sleep_hours=target_sleep_hours)
 
 @app.route('/exercise', methods=['GET', 'POST'])
 @login_required

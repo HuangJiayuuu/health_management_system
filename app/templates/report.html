@@ -1,9 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
-<article>
-    <header>
-        <h2>你最近一周的健康报告</h2>
-    </header>
+<article class="main-card">
+    <h2 class="main-title">你最近一周的健康报告</h2>
 
     <h4>核心数据一览</h4>
     <ul>
@@ -48,9 +46,9 @@
     <!-- 渲染 DeepSeek 建议内容 -->
     <div id="deepseek-advice-container" style="margin-top: 1em;"></div>
 
-    <footer>
+    <div class="main-footer">
         <small>报告生成时间: {{ report_time.strftime('%Y-%m-%d %H:%M:%S') }} (北京时间)</small>
-    </footer>
+    </div>
 </article>
 
 <!-- 引入 marked.js 用于渲染 Markdown -->

@@ -28,7 +28,7 @@
                     <section>
                         <h4>本周通用目标完成情况</h4>
                         {# 睡眠进度条 #}
-                        {% if general_progress.sleep %}
+                        {% if general_progress.sleep is defined %}
                         <div style="margin: 12px 0;">
                             <label>每日平均睡眠</label>
                             <div style="background:#eee; border-radius:8px; width:100%; height:10px; overflow:hidden; margin:8px 0;">
@@ -44,7 +44,7 @@
                         <br>
                         {% endif %}
                         {# 热量摄入圆环图 #}
-                        {% if general_progress.calories %}
+                        {% if general_progress.calories is defined %}
                         <div>
                             <label for="calorie_donut">每日平均热量摄入</label>
                             <div id="calorie_donut" style="width:180px;height:180px;"></div>
@@ -64,10 +64,12 @@
                         {% for item in exercise_progress_list %}
                             <div style="margin: 12px 0;">
                                 <label>
-                                    {{ item.goal.goal_type|replace('duration', '总时长')|replace('frequency', '总次数')|replace('calories', '总消耗热量') }}
-                                    {% if item.goal.exercise_type %}({{ item.goal.exercise_type }}){% endif %}
+                                    {% if item.goal.goal_type is defined %}
+                                        {{ item.goal.goal_type|replace('duration', '总时长')|replace('frequency', '总次数')|replace('calories', '总消耗热量') }}
+                                    {% endif %}
+                                    {% if item.goal.exercise_type is defined and item.goal.exercise_type %}({{ item.goal.exercise_type }}){% endif %}
                                 </label>
-                                {% if item.goal.goal_type == 'duration' or item.goal.goal_type == 'calories' %}
+                                {% if item.goal.goal_type is defined and (item.goal.goal_type == 'duration' or item.goal.goal_type == 'calories') %}
                                 <div style="background:#eee; border-radius:8px; width:100%; height:10px; overflow:hidden; margin:8px 0;">
                                   <div style="background:{{ '#e74c3c' if item.current < item.target else '#4caf50' }}; width:{{ item.progress|int }}%; height:100%; transition:width 0.5s;"></div>
                                 </div>
@@ -77,13 +79,13 @@
                                         <span style="color:#e74c3c; font-weight:bold;">（未达标）</span>
                                     {% endif %}
                                 </small>
-                                {% elif item.goal.goal_type == 'frequency' %}
+                                {% elif item.goal.goal_type is defined and item.goal.goal_type == 'frequency' %}
                                 <span style="display:inline-flex;gap:0.3em;vertical-align:middle;">
                                 {% for i in range(1, item.target|int + 1) %}
                                     {% if i <= item.current|int %}
-                                        <span class="freq-box checked" data-goal-id="{{ item.goal.id }}" data-index="{{ i }}" style="display:inline-block;width:22px;height:22px;border:2px solid #4caf50;border-radius:4px;text-align:center;line-height:20px;font-size:18px;cursor:pointer;background:#e8f5e9;color:#388e3c;">✔</span>
+                                        <span class="freq-box checked" data-goal-id="{{ item.goal.id }}" data-index="{{ i }}" style="display:inline-block;width:32px;height:32px;border:2.5px solid #4caf50;border-radius:6px;text-align:center;line-height:30px;font-size:26px;cursor:pointer;margin-right:4px;transition:border-color 0.2s,background 0.2s,color 0.2s;">✔</span>
                                     {% else %}
-                                        <span class="freq-box" data-goal-id="{{ item.goal.id }}" data-index="{{ i }}" style="display:inline-block;width:22px;height:22px;border:2px solid #bbb;border-radius:4px;text-align:center;line-height:20px;font-size:18px;cursor:pointer;background:#fff;color:#bbb;">□</span>
+                                        <span class="freq-box" data-goal-id="{{ item.goal.id }}" data-index="{{ i }}" style="display:inline-block;width:32px;height:32px;border:2.5px solid #bbb;border-radius:6px;text-align:center;line-height:30px;font-size:26px;cursor:pointer;margin-right:4px;transition:border-color 0.2s,background 0.2s,color 0.2s;">□</span>
                                     {% endif %}
                                 {% endfor %}
                                 </span>
@@ -105,29 +107,28 @@
 {% block scripts %}
 {{ super() }}
 <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+{% if general_progress.calories is defined %}
 <script>
 // 热量摄入圆环图
-var hasCalorie = {{ 'true' if general_progress.calories else 'false' }};
-if (hasCalorie) {
-    var donut = echarts.init(document.getElementById('calorie_donut'));
-    var calorieCurrent = {{ general_progress.calories.current|int }};
-    var calorieTarget = {{ general_progress.calories.target|int }};
-    var color = (calorieCurrent > calorieTarget) ? '#e74c3c' : '#4caf50';
-    donut.setOption({
-        series: [{
-            type: 'pie',
-            radius: ['70%', '90%'],
-            avoidLabelOverlap: false,
-            label: {show: false},
-            data: [
-                {value: Math.min(calorieCurrent, calorieTarget), name: '已摄入', itemStyle: {color: color}},
-                {value: Math.max(0, calorieTarget - calorieCurrent), name: '剩余', itemStyle: {color: '#eee'}},
-                {value: Math.max(0, calorieCurrent - calorieTarget), name: '超标', itemStyle: {color: '#e74c3c'}}
-            ]
-        }]
-    });
-}
+var donut = echarts.init(document.getElementById('calorie_donut'));
+var calorieCurrent = {{ general_progress.calories.current|int }};
+var calorieTarget = {{ general_progress.calories.target|int }};
+var color = (calorieCurrent > calorieTarget) ? '#e74c3c' : '#4caf50';
+donut.setOption({
+    series: [{
+        type: 'pie',
+        radius: ['70%', '90%'],
+        avoidLabelOverlap: false,
+        label: {show: false},
+        data: [
+            {value: Math.min(calorieCurrent, calorieTarget), name: '已摄入', itemStyle: {color: color}},
+            {value: Math.max(0, calorieTarget - calorieCurrent), name: '剩余', itemStyle: {color: '#eee'}},
+            {value: Math.max(0, calorieCurrent - calorieTarget), name: '超标', itemStyle: {color: '#e74c3c'}}
+        ]
+    }]
+});
 </script>
+{% endif %}
 <script>
 // 频次目标打勾交互
 function openExerciseRecordModal(goalId) {
