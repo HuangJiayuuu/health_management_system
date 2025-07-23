@@ -85,7 +85,7 @@
                                     {% if i <= item.current|int %}
                                         <span class="freq-box checked" data-goal-id="{{ item.goal.id }}" data-index="{{ i }}" style="display:inline-block;width:32px;height:32px;border:2.5px solid #4caf50;border-radius:6px;text-align:center;line-height:30px;font-size:26px;cursor:pointer;margin-right:4px;transition:border-color 0.2s,background 0.2s,color 0.2s;">✔</span>
                                     {% else %}
-                                        <span class="freq-box" data-goal-id="{{ item.goal.id }}" data-index="{{ i }}" style="display:inline-block;width:32px;height:32px;border:2.5px solid #bbb;border-radius:6px;text-align:center;line-height:30px;font-size:26px;cursor:pointer;margin-right:4px;transition:border-color 0.2s,background 0.2s,color 0.2s;">□</span>
+                                        <span class="freq-box" data-goal-id="{{ item.goal.id }}" data-index="{{ i }}" style="display:inline-block;width:32px;height:32px;border:2.5px solid #bbb;border-radius:6px;text-align:center;line-height:30px;font-size:26px;cursor:pointer;margin-right:4px;transition:border-color 0.2s,background 0.2s,color 0.2s;"></span>
                                     {% endif %}
                                 {% endfor %}
                                 </span>

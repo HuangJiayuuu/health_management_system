@@ -54,14 +54,16 @@ if (avgSleep) {
     markLineData.push({
         yAxis: avgSleep,
         lineStyle: { color: '#43a047', type: 'dashed', width: 2 },
-        label: { formatter: '平均: ' + avgSleep + 'h' }
+        label: { formatter: '平均: ' + avgSleep + 'h' },
+        tooltip: { show: true, trigger: 'item', formatter: '本周平均睡眠时长: ' + avgSleep + ' 小时' }
     });
 }
 if (targetSleep) {
     markLineData.push({
         yAxis: targetSleep,
         lineStyle: { color: '#ec9c4a', type: 'solid', width: 2 },
-        label: { formatter: '目标: ' + targetSleep + 'h' }
+        label: { formatter: '目标: ' + targetSleep + 'h' },
+        tooltip: { show: true, trigger: 'item', formatter: '目标睡眠时长: ' + targetSleep + ' 小时' }
     });
 }
 var sleepBar = echarts.init(document.getElementById('sleep_bar_chart'));
@@ -101,7 +103,8 @@ sleepBar.setOption({
         },
         markLine: {
             symbol: 'none',
-            data: markLineData
+            data: markLineData,
+            emphasis: { disabled: false }
         }
     }],
     grid: { left: 60, right: 30, bottom: 60, top: 60 }

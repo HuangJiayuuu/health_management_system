@@ -23,19 +23,22 @@ def index():
     progress_data = {}
     alert_messages = []  # 新增：用于存放预警信息
 
-    from datetime import date
     today = datetime.utcnow().date()
-    last_7_days = [today - timedelta(days=i) for i in range(6, -1, -1)]  # 提前定义，避免UnboundLocalError
-    
-    one_week_ago = datetime.utcnow() - timedelta(days=7)
+    monday = today - timedelta(days=today.weekday())
+    next_monday = monday + timedelta(days=7)
+    last_7_days = [monday + timedelta(days=i) for i in range(0, 7)]
+    days_so_far = (today - monday).days + 1  # 本周已过去天数（含今天）
 
     # --- Process General Goals ---
     if user_goal:
         # Sleep progress
         if user_goal.target_sleep_hours:
-            sleep_records = current_user.sleep_records.filter(SleepRecord.sleep_time >= one_week_ago).all()
+            sleep_records = current_user.sleep_records.filter(
+                SleepRecord.sleep_time >= datetime.combine(monday, datetime.min.time()),
+                SleepRecord.sleep_time < datetime.combine(today + timedelta(days=1), datetime.min.time())
+            ).all()
             total_sleep = sum(r.duration for r in sleep_records)
-            avg_sleep = total_sleep / 7 if sleep_records else 0
+            avg_sleep = total_sleep / days_so_far if days_so_far > 0 else 0
             progress_data['sleep'] = {
                 'current': avg_sleep,
                 'target': user_goal.target_sleep_hours,
@@ -44,9 +47,12 @@ def index():
         
         # Calorie progress (lower is better)
         if user_goal.target_calorie_intake:
-            diet_records = current_user.diet_records.filter(DietRecord.timestamp >= one_week_ago).all()
+            diet_records = current_user.diet_records.filter(
+                DietRecord.timestamp >= datetime.combine(monday, datetime.min.time()),
+                DietRecord.timestamp < datetime.combine(today + timedelta(days=1), datetime.min.time())
+            ).all()
             total_calories = sum(r.calories for r in diet_records)
-            avg_calories = total_calories / 7 if diet_records else 0
+            avg_calories = total_calories / days_so_far if days_so_far > 0 else 0
             progress_data['calories'] = {
                 'current': avg_calories,
                 'target': user_goal.target_calorie_intake,
@@ -56,7 +62,10 @@ def index():
     # --- Process Exercise Goals ---
     exercise_progress_list = []
     if exercise_goals:
-        exercise_records_this_week = current_user.exercise_records.filter(ExerciseRecord.timestamp >= one_week_ago).all()
+        exercise_records_this_week = current_user.exercise_records.filter(
+            ExerciseRecord.timestamp >= datetime.combine(monday, datetime.min.time()),
+            ExerciseRecord.timestamp < datetime.combine(next_monday, datetime.min.time())
+        ).all()
         for goal in exercise_goals:
             current_value = 0
             
@@ -83,18 +92,14 @@ def index():
     # ========== 异常预警功能实现 ==========
     # 1. 睡眠预警：连续3天睡眠不足
     if user_goal and user_goal.target_sleep_hours:
-        # 获取最近7天的日期
-        # today = datetime.utcnow().date() # This line is now redundant as today is defined above
-        # last_7_days = [today - timedelta(days=i) for i in range(6, -1, -1)] # This line is now redundant as last_7_days is defined above
-        # 获取最近8天的睡眠记录
-        records = current_user.sleep_records.filter(SleepRecord.sleep_time >= datetime.utcnow() - timedelta(days=8)).all()
-        # 统计每天的睡眠时长
+        records = current_user.sleep_records.filter(
+            SleepRecord.sleep_time >= datetime.combine(monday, datetime.min.time())
+        ).all()
         daily_sleep = {d: 0 for d in last_7_days}
         for r in records:
             d = r.sleep_time.date()
             if d in daily_sleep:
                 daily_sleep[d] += r.duration
-        # 检查连续3天低于目标
         min_sleep = min(user_goal.target_sleep_hours, 7)  # 以目标和7小时中较小者为阈值
         count = 0
         for d in last_7_days:
@@ -106,8 +111,9 @@ def index():
             else:
                 count = 0
     # 2. 运动预警：连续3天运动为0
-    # 统计每天运动时长
-    exercise_records = current_user.exercise_records.filter(ExerciseRecord.timestamp >= datetime.utcnow() - timedelta(days=8)).all()
+    exercise_records = current_user.exercise_records.filter(
+        ExerciseRecord.timestamp >= datetime.combine(monday, datetime.min.time())
+    ).all()
     daily_exercise = {d: 0 for d in last_7_days}
     for r in exercise_records:
         d = r.timestamp.date()
@@ -289,12 +295,14 @@ def sleep():
     
     # GET request logic
     sleep_records = current_user.sleep_records.order_by(SleepRecord.sleep_time.desc()).all()
-
-    # ECharts 柱状图数据准备
     today_utc = datetime.utcnow().date()
-    last_7_days = [today_utc - timedelta(days=i) for i in range(6, -1, -1)]
+    monday = today_utc - timedelta(days=today_utc.weekday())
+    next_monday = monday + timedelta(days=7)
+    last_7_days = [monday + timedelta(days=i) for i in range(0, 7)]
+    days_so_far = (today_utc - monday).days + 1
     records_for_plot = current_user.sleep_records.filter(
-        SleepRecord.sleep_time >= datetime.utcnow() - timedelta(days=8)
+        SleepRecord.sleep_time >= datetime.combine(monday, datetime.min.time()),
+        SleepRecord.sleep_time < datetime.combine(next_monday, datetime.min.time())
     ).all()
     daily_sleep = {d: 0 for d in last_7_days}
     for record in records_for_plot:
@@ -302,10 +310,8 @@ def sleep():
         daily_sleep[record_date] = daily_sleep.get(record_date, 0) + record.duration
     sleep_dates = [d.strftime('%m-%d') for d in last_7_days]
     sleep_durations = [round(daily_sleep[d], 2) for d in last_7_days]
-
-    # 计算本周平均睡眠时长
-    avg_sleep = round(sum(sleep_durations) / 7, 2) if sleep_durations else 0
-    # 获取用户目标睡眠时长
+    # 只用已过天数做分母
+    avg_sleep = round(sum(sleep_durations[:days_so_far]) / days_so_far, 2) if days_so_far > 0 else 0
     target_sleep_hours = current_user.goal.target_sleep_hours if current_user.goal and current_user.goal.target_sleep_hours else None
 
     return render_template('sleep.html', title='睡眠', form=form, sleep_records=sleep_records, sleep_dates=sleep_dates, sleep_durations=sleep_durations, avg_sleep=avg_sleep, target_sleep_hours=target_sleep_hours)
@@ -361,8 +367,12 @@ def exercise():
         return redirect(url_for('exercise'))
     
     # 统计最近一周每种运动类型的总时长
-    one_week_ago = datetime.utcnow() - timedelta(days=7)
-    exercise_records_week = current_user.exercise_records.filter(ExerciseRecord.timestamp >= one_week_ago).all()
+    monday = datetime.utcnow().date() - timedelta(days=datetime.utcnow().date().weekday())
+    next_monday = monday + timedelta(days=7)
+    exercise_records_week = current_user.exercise_records.filter(
+        ExerciseRecord.timestamp >= datetime.combine(monday, datetime.min.time()),
+        ExerciseRecord.timestamp < datetime.combine(next_monday, datetime.min.time())
+    ).all()
     duration_by_type = defaultdict(float)
     for r in exercise_records_week:
         if r.exercise_type:
@@ -423,7 +433,12 @@ def diet():
         
         return redirect(url_for('diet'))
 
-    diet_records = current_user.diet_records.order_by(DietRecord.timestamp.desc()).all()
+    monday = datetime.utcnow().date() - timedelta(days=datetime.utcnow().date().weekday())
+    next_monday = monday + timedelta(days=7)
+    diet_records = current_user.diet_records.filter(
+        DietRecord.timestamp >= datetime.combine(monday, datetime.min.time()),
+        DietRecord.timestamp < datetime.combine(next_monday, datetime.min.time())
+    ).order_by(DietRecord.timestamp.desc()).all()
     return render_template('diet.html', title='饮食', form=form, diet_records=diet_records)
 
 @app.route('/report')
