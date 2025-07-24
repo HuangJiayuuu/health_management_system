@@ -89,45 +89,47 @@ def index():
                 'progress': (current_value / goal.target_value) * 100 if goal.target_value > 0 else 0
             })
     
-    # ========== 异常预警功能实现 ==========
-    # 1. 睡眠预警：连续3天睡眠不足
+    # ========== 异常预警功能修正（连续三天不达标才警告） ==========
+    # 1. 睡眠预警：最近三天连续都睡眠不足才警告
     if user_goal and user_goal.target_sleep_hours:
+        min_sleep = user_goal.target_sleep_hours
+        past_3_days = [(today - timedelta(days=i)) for i in range(3)]
         records = current_user.sleep_records.filter(
-            SleepRecord.sleep_time >= datetime.combine(monday, datetime.min.time())
+            SleepRecord.wakeup_time >= datetime.combine(today - timedelta(days=2), datetime.min.time()),
+            SleepRecord.wakeup_time <= datetime.combine(today, datetime.max.time())
         ).all()
-        daily_sleep = {d: 0 for d in last_7_days}
+        daily_sleep = {d: 0 for d in past_3_days}
         for r in records:
-            d = r.sleep_time.date()
+            d = r.wakeup_time.date()
             if d in daily_sleep:
                 daily_sleep[d] += r.duration
-        min_sleep = min(user_goal.target_sleep_hours, 7)  # 以目标和7小时中较小者为阈值
-        count = 0
-        for d in last_7_days:
-            if daily_sleep[d] < min_sleep:
-                count += 1
-                if count >= 3:
-                    alert_messages.append(f"警告：你已连续{count}天睡眠不足（低于{min_sleep}小时），请注意休息！")
-                    break
-            else:
-                count = 0
-    # 2. 运动预警：连续3天运动为0
+        # 检查三天是否连续都不达标
+        all_days_insufficient = True
+        for d in past_3_days:
+            if daily_sleep[d] >= min_sleep:
+                all_days_insufficient = False
+                break
+        if all_days_insufficient:
+            alert_messages.append(f"警告：你最近三天连续睡眠不足（低于设定目标{min_sleep}小时），请注意休息！")
+
+    # 2. 运动预警：最近三天连续都未运动才警告
+    past_3_days_exercise = [(today - timedelta(days=i)) for i in range(3)]
     exercise_records = current_user.exercise_records.filter(
-        ExerciseRecord.timestamp >= datetime.combine(monday, datetime.min.time())
+        ExerciseRecord.timestamp >= datetime.combine(today - timedelta(days=2), datetime.min.time()),
+        ExerciseRecord.timestamp <= datetime.combine(today, datetime.max.time())
     ).all()
-    daily_exercise = {d: 0 for d in last_7_days}
+    daily_exercise = {d: 0 for d in past_3_days_exercise}
     for r in exercise_records:
         d = r.timestamp.date()
         if d in daily_exercise:
             daily_exercise[d] += r.duration or 0
-    count = 0
-    for d in last_7_days:
-        if daily_exercise[d] == 0:
-            count += 1
-            if count >= 3:
-                alert_messages.append(f"警告：你已连续{count}天没有运动，建议适当锻炼保持健康！")
-                break
-        else:
-            count = 0
+    all_days_no_exercise = True
+    for d in past_3_days_exercise:
+        if daily_exercise[d] > 0:
+            all_days_no_exercise = False
+            break
+    if all_days_no_exercise:
+        alert_messages.append(f"警告：你最近三天连续没有运动，建议适当锻炼保持健康！")
     # ========== 预警功能结束 ==========
 
     return render_template('index.html', title='主页', 

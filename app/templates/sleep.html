@@ -123,6 +123,12 @@ sleepBar.setOption({
     series: series.map(function(s, i){
         if (i === 0) {
             s.itemStyle.color = '#1976d2';
+            // 只在第一个系列添加标记线
+            s.markLine = {
+                symbol: 'none',
+                data: markLineData,
+                emphasis: { disabled: false }
+            };
         } else if (i === 1) {
             s.itemStyle.color = '#64b5f6';
         } else {
@@ -130,12 +136,7 @@ sleepBar.setOption({
         }
         return s;
     }),
-    grid: { left: 60, right: 30, bottom: 60, top: 60 },
-    markLine: {
-        symbol: 'none',
-        data: markLineData,
-        emphasis: { disabled: false }
-    }
+    grid: { left: 60, right: 30, bottom: 60, top: 60 }
 });
 </script>
 <script>
@@ -150,4 +151,4 @@ flatpickr("#wakeup_time_picker", {
     locale: "zh"
 });
 </script>
-{% endblock %} 
+{% endblock %}
