@@ -47,6 +47,8 @@
 // 睡眠柱状图数据
 var sleepDates = {{ sleep_dates|tojson|safe }};
 var sleepDurations = {{ sleep_durations|tojson|safe }};
+var sleepTimes = {{ sleep_times|tojson|safe }};
+var wakeupTimes = {{ wakeup_times|tojson|safe }};
 var avgSleep = {{ avg_sleep|tojson|safe }};
 var targetSleep = {{ target_sleep_hours|tojson|safe }};
 var markLineData = [];
@@ -66,12 +68,43 @@ if (targetSleep) {
         tooltip: { show: true, trigger: 'item', formatter: '目标睡眠时长: ' + targetSleep + ' 小时' }
     });
 }
+// 生成多段 series
+var series = [];
+var maxSegments = Math.max.apply(null, sleepDurations.map(x => x.length));
+for (var seg = 0; seg < maxSegments; seg++) {
+    series.push({
+        name: '睡眠段' + (seg+1),
+        type: 'bar',
+        stack: 'sleep',
+        barWidth: '55%',
+        data: sleepDurations.map(function(day, i){ return day[seg] || 0; }),
+        itemStyle: { borderRadius: [6, 6, 0, 0] },
+        label: {
+            show: true,
+            position: 'top',
+            formatter: function(params) {
+                if (params.value > 0) {
+                    var segIdx = params.seriesIndex;
+                    return sleepDurations[params.dataIndex][segIdx] + 'h';
+                }
+                return '';
+            },
+            fontSize: 13
+        }
+    });
+}
 var sleepBar = echarts.init(document.getElementById('sleep_bar_chart'));
 sleepBar.setOption({
     tooltip: {
         trigger: 'axis',
+        axisPointer: { type: 'shadow' },
         formatter: function(params) {
-            return params[0].axisValue + '<br/>睡眠时长: ' + params[0].data + ' 小时';
+            var idx = params[0].dataIndex;
+            var html = sleepDates[idx] + '<br/>';
+            for (var i = 0; i < sleepDurations[idx].length; i++) {
+                html += '第' + (i+1) + '段: ' + sleepTimes[idx][i] + ' ~ ' + wakeupTimes[idx][i] + ' (' + sleepDurations[idx][i] + 'h)<br/>';
+            }
+            return html;
         }
     },
     xAxis: {
@@ -87,27 +120,22 @@ sleepBar.setOption({
         max: 12,
         axisLabel: { fontSize: 16 }
     },
-    series: [{
-        data: sleepDurations,
-        type: 'bar',
-        barWidth: '55%',
-        itemStyle: {
-            color: '#1976d2',
-            borderRadius: [6, 6, 0, 0]
-        },
-        label: {
-            show: true,
-            position: 'top',
-            formatter: '{c}h',
-            fontSize: 15
-        },
-        markLine: {
-            symbol: 'none',
-            data: markLineData,
-            emphasis: { disabled: false }
+    series: series.map(function(s, i){
+        if (i === 0) {
+            s.itemStyle.color = '#1976d2';
+        } else if (i === 1) {
+            s.itemStyle.color = '#64b5f6';
+        } else {
+            s.itemStyle.color = '#90caf9';
         }
-    }],
-    grid: { left: 60, right: 30, bottom: 60, top: 60 }
+        return s;
+    }),
+    grid: { left: 60, right: 30, bottom: 60, top: 60 },
+    markLine: {
+        symbol: 'none',
+        data: markLineData,
+        emphasis: { disabled: false }
+    }
 });
 </script>
 <script>

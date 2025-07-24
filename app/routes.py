@@ -300,21 +300,31 @@ def sleep():
     next_monday = monday + timedelta(days=7)
     last_7_days = [monday + timedelta(days=i) for i in range(0, 7)]
     days_so_far = (today_utc - monday).days + 1
+    # 归属日期调整：按醒来的日期归类，筛选所有醒来日期在本周的记录
+    sleep_segments = {d: [] for d in last_7_days}
     records_for_plot = current_user.sleep_records.filter(
-        SleepRecord.sleep_time >= datetime.combine(monday, datetime.min.time()),
-        SleepRecord.sleep_time < datetime.combine(next_monday, datetime.min.time())
+        SleepRecord.wakeup_time >= datetime.combine(monday, datetime.min.time()),
+        SleepRecord.wakeup_time < datetime.combine(next_monday, datetime.min.time())
     ).all()
-    daily_sleep = {d: 0 for d in last_7_days}
     for record in records_for_plot:
-        record_date = record.sleep_time.date()
-        daily_sleep[record_date] = daily_sleep.get(record_date, 0) + record.duration
+        st = record.sleep_time
+        et = record.wakeup_time
+        assign_date = et.date()  # 归属到醒来的那一天
+        if assign_date in sleep_segments:
+            sleep_segments[assign_date].append({
+                'duration': round(record.duration, 2),
+                'sleep_time': st.strftime('%H:%M'),
+                'wakeup_time': et.strftime('%H:%M')
+            })
+    # 构造前端数据
     sleep_dates = [d.strftime('%m-%d') for d in last_7_days]
-    sleep_durations = [round(daily_sleep[d], 2) for d in last_7_days]
+    sleep_durations = [[seg['duration'] for seg in sleep_segments[d]] for d in last_7_days]
+    sleep_times = [[seg['sleep_time'] for seg in sleep_segments[d]] for d in last_7_days]
+    wakeup_times = [[seg['wakeup_time'] for seg in sleep_segments[d]] for d in last_7_days]
     # 只用已过天数做分母
-    avg_sleep = round(sum(sleep_durations[:days_so_far]) / days_so_far, 2) if days_so_far > 0 else 0
+    avg_sleep = round(sum([sum(day) for day in sleep_durations[:days_so_far]]) / days_so_far, 2) if days_so_far > 0 else 0
     target_sleep_hours = current_user.goal.target_sleep_hours if current_user.goal and current_user.goal.target_sleep_hours else None
-
-    return render_template('sleep.html', title='睡眠', form=form, sleep_records=sleep_records, sleep_dates=sleep_dates, sleep_durations=sleep_durations, avg_sleep=avg_sleep, target_sleep_hours=target_sleep_hours)
+    return render_template('sleep.html', title='睡眠', form=form, sleep_records=sleep_records, sleep_dates=sleep_dates, sleep_durations=sleep_durations, avg_sleep=avg_sleep, target_sleep_hours=target_sleep_hours, sleep_times=sleep_times, wakeup_times=wakeup_times)
 
 @app.route('/exercise', methods=['GET', 'POST'])
 @login_required
