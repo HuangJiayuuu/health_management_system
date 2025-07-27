@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>好友请求</h1>
+    {% if requests %}
+        <ul>
+            {% for item in requests %}
+                <li>
+                    {{ item.sender_username }} 向你发送了好友请求。
+                    <form action="{{ url_for('accept_friend_request', request_id=item.request.id) }}" method="post" style="display: inline;">
+                        <button type="submit" class="contrast">接受</button>
+                    </form>
+                    <form action="{{ url_for('reject_friend_request', request_id=item.request.id) }}" method="post" style="display: inline;">
+                        <button type="submit" class="secondary">拒绝</button>
+                    </form>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>暂无好友请求。</p>
+    {% endif %}
+{% endblock %}

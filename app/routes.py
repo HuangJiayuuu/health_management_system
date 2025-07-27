@@ -3,7 +3,7 @@ from flask import jsonify,render_template, flash, redirect, url_for, request, ab
 from app.forms import (LoginForm, RegistrationForm, EditProfileForm, GoalForm, 
                        AddExerciseGoalForm, SleepForm, ExerciseForm, DietForm)
 from flask_login import current_user, login_user, logout_user, login_required
-from app.models import User, SleepRecord, ExerciseRecord, DietRecord, Goal, ExerciseGoal
+from app.models import User, SleepRecord, ExerciseRecord, DietRecord, Goal, ExerciseGoal, FriendRequest, Friendship
 from datetime import datetime, timedelta
 from urllib.parse import urlsplit
 import matplotlib.pyplot as plt
@@ -12,7 +12,8 @@ import base64
 from collections import defaultdict
 import os
 import requests
-from flask import session
+from flask import session, Flask
+from sqlalchemy import desc
 
 @app.route('/')
 @app.route('/index')
@@ -572,7 +573,7 @@ def get_deepseek_advice():
     avg_calories_eaten = total_calories_eaten / 7 if diet_records else 0
 
     prompt = "请根据以下健康数据给出健康评估和建议，数据包含周平均睡眠时长（小时/天）、身体质量指数（BMI）、周日均摄入热量（大卡）和周日均运动消耗（大卡）。并且给出食谱建议。"
-    # 构造符合 DeepSeek API 格式的请求数据
+
     messages = [
         {
             "role": "user",
@@ -587,7 +588,6 @@ def get_deepseek_advice():
         "temperature": 0.3
     }
 
-    # 调用 DeepSeek API
     deepseek_api_key = 'sk-19cca959be3243b89eb3e2f5e986e78b'
     deepseek_advice = None
     if deepseek_api_key:
@@ -603,7 +603,6 @@ def get_deepseek_advice():
             )
             response.raise_for_status()
             deepseek_response = response.json()
-            # 根据 DeepSeek API 返回结构提取建议
             if 'choices' in deepseek_response and deepseek_response['choices']:
                 message_content = deepseek_response['choices'][0]['message']['content']
                 deepseek_advice = message_content
@@ -615,3 +614,146 @@ def get_deepseek_advice():
 
     session['deepseek_advice'] = deepseek_advice
     return jsonify({'advice': deepseek_advice})
+
+@app.route('/search_user', methods=['GET', 'POST'])
+@login_required
+def search_user():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        if not username:
+            flash('请输入要搜索的用户名', 'danger')
+            return redirect(url_for('search_user'))
+        user = User.query.filter_by(username=username).first()
+        if user:
+            if user.id == current_user.id:
+                flash('不能搜索自己', 'warning')
+                return redirect(url_for('search_user'))
+
+            is_friend = Friendship.query.filter(
+                ((Friendship.user_id == current_user.id) & (Friendship.friend_id == user.id)) |
+                ((Friendship.user_id == user.id) & (Friendship.friend_id == current_user.id))
+            ).first()
+
+            existing_request = FriendRequest.query.filter(
+                ((FriendRequest.sender_id == current_user.id) & (FriendRequest.receiver_id == user.id)) |
+                ((FriendRequest.sender_id == user.id) & (FriendRequest.receiver_id == current_user.id))
+            ).first()
+            return render_template('user_found.html', user=user, is_friend=is_friend, existing_request=existing_request)
+        else:
+            flash('未找到该用户', 'danger')
+            return redirect(url_for('search_user'))
+    return render_template('search_user.html')
+
+@app.route('/send_friend_request/<int:user_id>')
+@login_required
+def send_friend_request(user_id):
+    sender_id = current_user.id
+
+    is_friend = Friendship.query.filter(
+        ((Friendship.user_id == sender_id) & (Friendship.friend_id == user_id)) |
+        ((Friendship.user_id == user_id) & (Friendship.friend_id == sender_id))
+    ).first()
+    if is_friend:
+        flash('你们已经是好友了', 'warning')
+        return redirect(url_for('search_user'))
+
+    existing_request = FriendRequest.query.filter(
+        ((FriendRequest.sender_id == sender_id) & (FriendRequest.receiver_id == user_id)) |
+        ((FriendRequest.sender_id == user_id) & (FriendRequest.receiver_id == sender_id))
+    ).first()
+    if existing_request:
+        if existing_request.sender_id == sender_id:
+            flash('你已经发送过好友请求了', 'warning')
+        else:
+            flash('对方已经向你发送过好友请求，请到好友请求列表处理', 'info')
+        return redirect(url_for('search_user'))
+    friend_request = FriendRequest(sender_id=sender_id, receiver_id=user_id)
+    db.session.add(friend_request)
+    db.session.commit()
+    flash('好友请求已发送', 'success')
+    return redirect(url_for('search_user'))
+
+@app.route('/friend_requests')
+@login_required
+def friend_requests():
+    friend_requests = FriendRequest.query.filter_by(receiver_id=current_user.id, status='pending').all()
+    requests_with_usernames = []
+    for request in friend_requests:
+        sender = User.query.get(request.sender_id)
+        requests_with_usernames.append({
+            'request': request,
+            'sender_username': sender.username if sender else '未知用户'
+        })
+    return render_template('friend_requests.html', requests=requests_with_usernames)
+
+@app.route('/accept_friend_request/<int:request_id>', methods=['POST'])
+@login_required
+def accept_friend_request(request_id):
+    friend_request = FriendRequest.query.get(request_id)
+    if friend_request and friend_request.receiver_id == current_user.id:
+        friend_request.status = 'accepted'
+        friendship1 = Friendship(user_id=friend_request.sender_id, friend_id=friend_request.receiver_id)
+        friendship2 = Friendship(user_id=friend_request.receiver_id, friend_id=friend_request.sender_id)
+        db.session.add(friendship1)
+        db.session.add(friendship2)
+        db.session.commit()
+        flash('已接受好友请求', 'success')
+    else:
+        flash('无效的好友请求', 'danger')
+    return redirect(url_for('friend_requests'))
+
+@app.route('/reject_friend_request/<int:request_id>', methods=['POST'])
+@login_required
+def reject_friend_request(request_id):
+    friend_request = FriendRequest.query.get(request_id)
+    if friend_request and friend_request.receiver_id == current_user.id:
+        # 删除好友请求记录
+        db.session.delete(friend_request)
+        db.session.commit()
+        flash('已拒绝好友请求', 'success')
+    else:
+        flash('无效的好友请求', 'danger')
+    return redirect(url_for('friend_requests'))
+
+@app.route('/friends')
+@login_required
+def friends():
+    user_id = current_user.id
+    friendships = Friendship.query.filter_by(user_id=user_id).all()
+    friend_list = []
+    for friendship in friendships:
+        friend = User.query.get(friendship.friend_id)
+        friend_list.append(friend)
+    return render_template('friends.html', friends=friend_list)
+
+@app.route('/friend_profile/<int:friend_id>')
+@login_required
+def friend_profile(friend_id):
+    friend = User.query.get(friend_id)
+    if not friend:
+        return "未找到该用户", 404
+
+    one_week_ago = datetime.utcnow() - timedelta(days=7)
+
+    recent_sleep = SleepRecord.query.filter(
+        SleepRecord.user_id == friend.id,
+        SleepRecord.sleep_time >= one_week_ago
+    ).order_by(desc(SleepRecord.sleep_time)).all()
+
+    recent_exercise = ExerciseRecord.query.filter(
+        ExerciseRecord.user_id == friend.id,
+        ExerciseRecord.timestamp >= one_week_ago
+    ).order_by(desc(ExerciseRecord.timestamp)).all()
+
+    recent_diet = DietRecord.query.filter(
+        DietRecord.user_id == friend.id,
+        DietRecord.timestamp >= one_week_ago
+    ).order_by(desc(DietRecord.timestamp)).all()
+
+    return render_template(
+        'friend_profile.html',
+        friend=friend,
+        recent_sleep=recent_sleep,
+        recent_exercise=recent_exercise,
+        recent_diet=recent_diet
+    )
