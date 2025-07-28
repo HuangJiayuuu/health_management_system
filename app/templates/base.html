@@ -109,18 +109,21 @@ nav ul:last-child li a:hover, nav ul:last-child li button:hover {
                 <li><a href="{{ url_for('report') }}">健康报告</a></li>
                 <li><a href="{{ url_for('goals') }}">健康目标</a></li>
                 <li><a href="{{ url_for('profile') }}">个人资料</a></li>
+                <li><a href="{{ url_for('search_user') }}">搜索用户</a></li>
+                <li><a href="{{ url_for('friend_requests') }}">好友请求</a></li>
+                <li><a href="{{ url_for('friends') }}">好友列表</a></li>
                 <li><a href="{{ url_for('logout') }}">登出</a></li>
                 {% endif %}
             </ul>
         </nav>
         <main class="container">
-            {% with messages = get_flashed_messages() %}
+            {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
-            <article>
-                {% for message in messages %}
-                <p>{{ message }}</p>
+                {% for category, message in messages %}
+                    <article class="alert alert-{{ category }}">
+                        <p>{{ message }}</p>
+                    </article>
                 {% endfor %}
-            </article>
             {% endif %}
             {% endwith %}
             {% block content %}{% endblock %}

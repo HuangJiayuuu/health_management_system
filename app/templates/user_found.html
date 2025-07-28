@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}
+{{ user.username }} - 用户信息
+{% endblock %}
+
+{% block content %}
+    <h1>{{ user.username }} 的信息</h1>
+
+    {% if is_friend %}
+        <p class="success">你们已经是好友啦！</p>
+        <a href="{{ url_for('friend_profile', friend_id=user.id) }}" class="button">查看好友资料</a>
+    {% elif existing_request %}
+        {% if existing_request.sender_id == current_user.id %}
+            <p class="warning">你已经向 {{ user.username }} 发送过好友请求，请等待对方处理。</p>
+        {% else %}
+            <p class="info">{{ user.username }} 已经向你发送过好友请求，<a href="{{ url_for('friend_requests') }}">点击这里</a> 去处理。</p>
+        {% endif %}
+    {% else %}
+        <a href="{{ url_for('send_friend_request', user_id=user.id) }}" class="button">发送好友请求</a>
+    {% endif %}
+{% endblock %}

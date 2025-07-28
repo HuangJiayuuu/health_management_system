@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block content %}
+<main class="main-card">
+    <h1 class="main-title">搜索用户</h1>
+    <form method="post">
+        <p>
+            <label for="username">用户名:</label>
+            <input type="text" id="username" name="username" required>
+        </p>
+        <p>
+            <button type="submit">搜索</button>
+        </p>
+    </form>
+</main>
+{% endblock %}

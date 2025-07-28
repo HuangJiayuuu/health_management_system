@@ -26,6 +26,10 @@ class User(UserMixin, db.Model):
     exercise_records = db.relationship('ExerciseRecord', backref='author', lazy='dynamic')
     diet_records = db.relationship('DietRecord', backref='author', lazy='dynamic')
 
+    friend_requests_sent = db.relationship('FriendRequest', foreign_keys='FriendRequest.sender_id', backref='sender', lazy='dynamic')
+    friend_requests_received = db.relationship('FriendRequest', foreign_keys='FriendRequest.receiver_id', backref='receiver', lazy='dynamic')
+    friendships = db.relationship('Friendship', foreign_keys='Friendship.user_id', backref='user', lazy='dynamic')
+
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 
@@ -102,3 +106,20 @@ class DietRecord(db.Model):
 
     def __repr__(self):
         return f'<DietRecord {self.food_name}>'
+
+class FriendRequest(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    sender_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    receiver_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    status = db.Column(db.String(20), default='pending')  # pending, accepted, rejected
+
+    def __repr__(self):
+        return f'<FriendRequest from {self.sender_id} to {self.receiver_id}: {self.status}>'
+
+class Friendship(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    friend_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    friend = db.relationship('User', foreign_keys=[friend_id])
+    def __repr__(self):
+        return f'<Friendship between {self.user_id} and {self.friend_id}>'
