@@ -340,5 +340,4 @@ if __name__ == '__main__':
 5. **Database Security**: SQLAlchemy ORM helps prevent SQL injection attacks
 
 ## Conclusion
-
 The Health Management System is built using modern web development practices and follows the Flask application structure. The use of SQLAlchemy ORM, Flask-Login, and Flask-WTF provides a solid foundation for a secure and maintainable application.
