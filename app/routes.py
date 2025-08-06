@@ -14,6 +14,7 @@ import os
 import requests
 from flask import session, Flask
 from sqlalchemy import desc
+from app.analysis import generate_sleep_prediction, analyze_exercise_sleep_correlation
 
 @app.route('/')
 @app.route('/index')
@@ -45,7 +46,7 @@ def index():
                 'target': user_goal.target_sleep_hours,
                 'progress': (avg_sleep / user_goal.target_sleep_hours) * 100 if user_goal.target_sleep_hours > 0 else 0
             }
-        
+
         # Calorie progress (lower is better)
         if user_goal.target_calorie_intake:
             diet_records = current_user.diet_records.filter(
@@ -69,7 +70,7 @@ def index():
         ).all()
         for goal in exercise_goals:
             current_value = 0
-            
+
             # Filter records relevant to the specific goal if an exercise_type is specified
             relevant_records = exercise_records_this_week
             if goal.exercise_type:
@@ -89,7 +90,7 @@ def index():
                 'target': goal.target_value,
                 'progress': (current_value / goal.target_value) * 100 if goal.target_value > 0 else 0
             })
-    
+
     # ========== 异常预警功能修正（连续三天不达标才警告） ==========
     # 1. 睡眠预警：最近三天连续都睡眠不足才警告
     if user_goal and user_goal.target_sleep_hours:
@@ -185,14 +186,14 @@ def profile():
         current_user.age = form.age.data
         current_user.height = form.height.data
         current_user.weight = form.weight.data
-        
+
         # Calculate and save BMI
         if current_user.height and current_user.weight:
             height_in_meters = current_user.height / 100
             current_user.bmi = round(current_user.weight / (height_in_meters ** 2), 2)
         else:
             current_user.bmi = None
-            
+
         db.session.commit()
         flash('你的个人资料已更新！')
         return redirect(url_for('profile'))
@@ -216,7 +217,7 @@ def goals():
         if not goal:
             goal = Goal(user_id=current_user.id)
             db.session.add(goal)
-        
+
         goal.target_sleep_hours = form.target_sleep_hours.data
         goal.target_calorie_intake = form.target_calorie_intake.data
         db.session.commit()
@@ -239,9 +240,9 @@ def goals():
         if current_user.goal:
             form.target_sleep_hours.data = current_user.goal.target_sleep_hours
             form.target_calorie_intake.data = current_user.goal.target_calorie_intake
-    
+
     exercise_goals = current_user.exercise_goals.all()
-            
+
     return render_template('goals.html', title='健康目标', form=form, 
                            add_exercise_goal_form=add_exercise_goal_form, 
                            exercise_goals=exercise_goals)
@@ -295,7 +296,7 @@ def sleep():
         except ValueError:
             flash('日期格式不正确，请使用 YYYY-MM-DD HH:MM 格式。')
             return redirect(url_for('sleep'))
-    
+
     # GET request logic
     sleep_records = current_user.sleep_records.order_by(SleepRecord.sleep_time.desc()).all()
     today_utc = datetime.utcnow().date()
@@ -333,14 +334,14 @@ def sleep():
 @login_required
 def exercise():
     form = ExerciseForm()
-    
+
     MET_VALUES = {
         '跑步': 7.0,
         '游泳': 8.0,
         '瑜伽': 2.5,
         '骑行': 6.8,
     }
-    
+
     if current_user.weight:
         user_weight_kg = current_user.weight
     else:
@@ -378,7 +379,7 @@ def exercise():
         db.session.commit()
         flash('新的运动记录已添加！')
         return redirect(url_for('exercise'))
-    
+
     # 统计最近一周每种运动类型的总时长
     monday = datetime.utcnow().date() - timedelta(days=datetime.utcnow().date().weekday())
     next_monday = monday + timedelta(days=7)
@@ -413,7 +414,7 @@ def diet():
         food_choice = form.food_choice.data
         portion = form.portion.data
         meal_type = form.meal_type.data
-        
+
         food_name = ""
         calories = 0
 
@@ -443,7 +444,7 @@ def diet():
             flash('新的饮食记录已添加！')
         else:
             flash('无法计算卡路里，请检查输入。')
-        
+
         return redirect(url_for('diet'))
 
     monday = datetime.utcnow().date() - timedelta(days=datetime.utcnow().date().weekday())
@@ -464,13 +465,13 @@ def report():
 
     total_sleep_hours = sum(r.duration for r in sleep_records)
     avg_sleep = total_sleep_hours / 7 if sleep_records else 0
-    
+
     total_calories_burned = sum(r.calories_burned for r in exercise_records)
     avg_calories_burned = total_calories_burned / 7 if exercise_records else 0
-    
+
     total_calories_eaten = sum(r.calories for r in diet_records)
     avg_calories_eaten = total_calories_eaten / 7 if diet_records else 0
-    
+
     advice_list = []
     if not sleep_records and not exercise_records and not diet_records:
         advice_list.append("你最近一周还没有任何记录，快去添加一些数据来生成你的专属健康报告吧！")
@@ -492,7 +493,7 @@ def report():
 
         if not exercise_records:
             advice_list.append("你最近一周没有运动记录，别忘了适度锻炼是健康的关键哦。")
-    
+
     # Add BMI advice
     bmi_status = None
     if current_user.bmi:
@@ -510,17 +511,40 @@ def report():
             bmi_status = "肥胖"
             advice_list.append(f"你的BMI为 {bmi}，属于肥胖范围，请关注相关健康风险。")
 
+    # Get all sleep records for prediction (not just last week)
+    all_sleep_records = current_user.sleep_records.all()
+
+    # Generate sleep prediction
+    sleep_prediction = generate_sleep_prediction(all_sleep_records)
+
+    # Analyze correlation between exercise and sleep
+    all_exercise_records = current_user.exercise_records.all()
+    correlation_analysis = analyze_exercise_sleep_correlation(all_exercise_records, all_sleep_records)
+
+    # Add analysis insights to advice list if successful
+    if sleep_prediction.get('success'):
+        slope = sleep_prediction.get('slope', 0)
+        if slope > 0.1:
+            advice_list.append("根据你的睡眠记录分析，你的睡眠时长呈上升趋势，继续保持良好的睡眠习惯。")
+        elif slope < -0.1:
+            advice_list.append("根据你的睡眠记录分析，你的睡眠时长呈下降趋势，请注意调整作息，保证充足睡眠。")
+
+    if correlation_analysis.get('success'):
+        advice_list.append(f"数据分析显示：{correlation_analysis.get('interpretation', '')}")
+
     # Convert UTC time to Beijing Time (UTC+8)
     report_time_utc = datetime.utcnow()
     report_time_beijing = report_time_utc + timedelta(hours=8)
-    
+
     return render_template('report.html', title='健康报告', 
                            advice_list=advice_list, 
                            avg_sleep=avg_sleep, 
                            avg_calories_burned=avg_calories_burned, 
                            avg_calories_eaten=avg_calories_eaten,
                            bmi_status=bmi_status,
-                           report_time=report_time_beijing)
+                           report_time=report_time_beijing,
+                           sleep_prediction=sleep_prediction,
+                           correlation_analysis=correlation_analysis)
 
 @app.route('/delete_sleep/<int:record_id>', methods=['POST'])
 @login_required
@@ -565,10 +589,10 @@ def get_deepseek_advice():
 
     total_sleep_hours = sum(r.duration for r in sleep_records)
     avg_sleep = total_sleep_hours / 7 if sleep_records else 0
-    
+
     total_calories_burned = sum(r.calories_burned for r in exercise_records)
     avg_calories_burned = total_calories_burned / 7 if exercise_records else 0
-    
+
     total_calories_eaten = sum(r.calories for r in diet_records)
     avg_calories_eaten = total_calories_eaten / 7 if diet_records else 0
 
