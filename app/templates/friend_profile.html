@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}
+{{ friend.username }} 的资料 - 健康管理系统
+{% endblock %}
+
+{% block content %}
+    <h1>{{ friend.username }} 的资料</h1>
+    <p>健康目标: {{ friend.goals|default('暂无', true) }}</p>
+
+    <!-- 展示近期睡眠记录 -->
+    <h2>近期睡眠</h2>
+    {% if recent_sleep %}
+        <ul>
+            {% for record in recent_sleep %}
+                <li>
+                    入睡时间: {{ record.sleep_time.strftime('%Y-%m-%d %H:%M') }}, 
+                    起床时间: {{ record.wakeup_time.strftime('%Y-%m-%d %H:%M') }}, 
+                    睡眠时长: {{ "%.2f"|format(record.duration) }} 小时
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>暂无近期睡眠记录</p>
+    {% endif %}
+
+    <!-- 展示近期运动记录 -->
+    <h2>近期运动</h2>
+    {% if recent_exercise %}
+        <ul>
+            {% for record in recent_exercise %}
+                <li>
+                    运动类型: {{ record.exercise_type }}, 
+                    运动时长: {{ record.duration }} 分钟, 
+                    消耗热量: {{ record.calories_burned }} 千卡, 
+                    运动时间: {{ record.timestamp.strftime('%Y-%m-%d %H:%M') }}
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>暂无近期运动记录</p>
+    {% endif %}
+
+    <!-- 展示近期食谱记录 -->
+    <h2>近期食谱</h2>
+    {% if recent_diet %}
+        <ul>
+            {% for record in recent_diet %}
+                <li>
+                    食物名称: {{ record.food_name }}, 
+                    份量: {{ record.portion }}, 
+                    热量: {{ record.calories }} 千卡, 
+                    用餐类型: {{ record.meal_type }}, 
+                    用餐时间: {{ record.timestamp.strftime('%Y-%m-%d %H:%M') }}
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>暂无近期食谱记录</p>
+    {% endif %}
+{% endblock %}

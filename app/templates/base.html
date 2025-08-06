@@ -1,0 +1,135 @@
+<!doctype html>
+<html>
+    <head>
+      {% if title %}
+      <title>{{ title }} - 健康管理系统</title>
+      {% else %}
+      <title>欢迎来到健康管理系统</title>
+      {% endif %}
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+      <style>
+.main-card {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.07), 0 1.5px 4px rgba(0,0,0,0.06);
+  border: 1px solid #e0e0e0;
+  padding: 2.2rem 2.2rem 1.5rem 2.2rem;
+  margin: 2.2rem auto;
+  max-width: 980px;
+}
+@media (max-width: 800px) {
+  .main-card { padding: 1.2rem 0.5rem; }
+}
+.main-title {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 0.7em;
+  margin-top: 0;
+  color: #222;
+  letter-spacing: 0.02em;
+}
+.home-title { margin-top: 1.5em; }
+.main-subtitle {
+  font-size: 1.1rem;
+  color: #666;
+  margin-bottom: 1.5em;
+  margin-top: -0.8em;
+}
+.main-footer {
+  margin-top: 2em;
+  font-size: 0.95em;
+  color: #888;
+  text-align: right;
+}
+nav {
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+  padding: 0.7rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+nav ul {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+nav ul li strong {
+  font-size: 1.18rem;
+  font-weight: 700;
+  padding-left: 0.5rem;
+  padding-right: 1.5rem;
+  color: #222;
+  letter-spacing: 0.04em;
+}
+nav ul:last-child li a, nav ul:last-child li button {
+  display: inline-block;
+  padding: 0.36em 1em;
+  border-radius: 6px;
+  background: none;
+  border: none;
+  color: #1976d2;
+  font-size: 1rem;
+  text-decoration: none;
+  margin-left: 0.1em;
+  transition: background 0.15s, color 0.15s;
+}
+nav ul:last-child li a:hover, nav ul:last-child li button:hover {
+  background: #f2f6fa;
+  color: #0d47a1;
+}
+@media (max-width: 800px) {
+  nav { padding: 0.5rem 0.5rem; }
+  nav ul li strong { padding-right: 0.7rem; }
+  nav ul:last-child li a, nav ul:last-child li button {
+    padding: 0.36em 0.7em;
+    font-size: 0.98rem;
+  }
+}
+</style>
+    </head>
+    <body>
+        <nav>
+            <ul>
+                <li><strong>健康管理系统</strong></li>
+            </ul>
+            <ul>
+                <li><a href="{{ url_for('index') }}">主页</a></li>
+                {% if current_user.is_anonymous %}
+                <li><a href="{{ url_for('login') }}">登录</a></li>
+                <li><a href="{{ url_for('register') }}">注册</a></li>
+                {% else %}
+                <li><a href="{{ url_for('sleep') }}">睡眠</a></li>
+                <li><a href="{{ url_for('exercise') }}">运动</a></li>
+                <li><a href="{{ url_for('diet') }}">饮食</a></li>
+                <li><a href="{{ url_for('report') }}">健康报告</a></li>
+                <li><a href="{{ url_for('goals') }}">健康目标</a></li>
+                <li><a href="{{ url_for('profile') }}">个人资料</a></li>
+                <li><a href="{{ url_for('search_user') }}">搜索用户</a></li>
+                <li><a href="{{ url_for('friend_requests') }}">好友请求</a></li>
+                <li><a href="{{ url_for('friends') }}">好友列表</a></li>
+                <li><a href="{{ url_for('logout') }}">登出</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+        <main class="container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <article class="alert alert-{{ category }}">
+                        <p>{{ message }}</p>
+                    </article>
+                {% endfor %}
+            {% endif %}
+            {% endwith %}
+            {% block content %}{% endblock %}
+        </main>
+        <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+        <script src="https://npmcdn.com/flatpickr/dist/l10n/zh.js"></script>
+        {% block scripts %}{% endblock %}
+    </body>
+</html> 

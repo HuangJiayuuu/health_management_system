@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block content %}
+<article class="main-card">
+    <h2 class="main-title">通用健康目标</h2>
+    <p class="main-subtitle">设定你长期的睡眠和饮食基准目标。</p>
+    <form action="" method="post">
+        {{ form.hidden_tag() }}
+        <div class="grid">
+            <div>
+                {{ form.target_sleep_hours.label }}<br>
+                {{ form.target_sleep_hours(style="width: 100%;") }}
+            </div>
+            <div>
+                {{ form.target_calorie_intake.label }}<br>
+                {{ form.target_calorie_intake(style="width: 100%;") }}
+            </div>
+        </div>
+        {{ form.update_general_goals() }}
+    </form>
+
+    <hr>
+
+    <h2>运动目标 (每周)</h2>
+    <p>你可以添加多个不同类型的运动目标，并在主页追踪它们的完成进度。</p>
+    
+    <article>
+        <h4>已设定的运动目标</h4>
+        {% if exercise_goals %}
+            <ul>
+            {% for goal in exercise_goals %}
+                <li style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
+                    <span>
+                        {{ goal.goal_type|replace('duration', '周总时长')|replace('frequency', '周总次数')|replace('calories', '周总热量') }}
+                        {% if goal.exercise_type %}({{ goal.exercise_type }}){% endif %}: {{ goal.target_value }}
+                    </span>
+                    <form action="{{ url_for('delete_exercise_goal', goal_id=goal.id) }}" method="post" style="display: inline; margin: 0;">
+                        <button type="submit" title="删除" style="background: none; border: none; color: #888; font-size: 1.2rem; cursor: pointer; padding: 0 0.3rem; line-height: 1;">
+                            ×
+                        </button>
+                    </form>
+                </li>
+            {% endfor %}
+            </ul>
+        {% else %}
+            <p>你还没有设定任何运动目标。</p>
+        {% endif %}
+    </article>
+
+    <details>
+        <summary style="font-weight: bold;">添加新的运动目标</summary>
+        <form action="" method="post">
+            {{ add_exercise_goal_form.hidden_tag() }}
+            
+            {{ add_exercise_goal_form.goal_type.label }}
+            {{ add_exercise_goal_form.goal_type() }}
+
+            <label for="target_value_input">{{ add_exercise_goal_form.target_value.label }}</label>
+            <div id="target_value_field"></div>
+
+            <div id="exercise_type_field_wrapper">
+                {{ add_exercise_goal_form.exercise_type.label }}
+                {{ add_exercise_goal_form.exercise_type() }}
+            </div>
+
+            <br>
+            {{ add_exercise_goal_form.add_exercise_goal(class_="contrast") }}
+        </form>
+    </details>
+</article>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const goalTypeSelect = document.getElementById('goal_type_select');
+        const targetValueField = document.getElementById('target_value_field');
+
+        function updateTargetValueInput() {
+            const type = goalTypeSelect.value;
+            let html = '';
+            if (type === 'duration') {
+                html = '<input type="number" id="target_value_input" name="target_value" min="0" max="1000" step="5" value="60" required style="width:120px;"> <span>分钟</span>';
+            } else if (type === 'frequency') {
+                html = '<input type="range" id="target_value_input" name="target_value" min="1" max="14" step="1" value="3" oninput="document.getElementById(\'freq_val\').innerText=this.value"> <span id="freq_val">3</span> 次';
+            } else if (type === 'calories') {
+                html = '<input type="number" id="target_value_input" name="target_value" min="0" max="20000" step="10" value="500" required style="width:120px;"> <span>大卡</span>';
+            }
+            targetValueField.innerHTML = html;
+        }
+
+        goalTypeSelect.addEventListener('change', updateTargetValueInput);
+        updateTargetValueInput(); // 初始化
+    });
+</script>
+{% endblock %} 

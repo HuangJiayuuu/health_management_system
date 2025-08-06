@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block content %}
+<article class="main-card">
+    <h2 class="main-title">你最近一周的健康报告</h2>
+
+    <h4>核心数据一览</h4>
+    <ul>
+        <li>周平均睡眠时长: <strong>{{ "%.2f"|format(avg_sleep) }}</strong> 小时/天</li>
+        <li>周日均摄入热量: <strong>{{ "%.1f"|format(avg_calories_eaten) }}</strong> 大卡</li>
+        <li>周日均运动消耗: <strong>{{ "%.1f"|format(avg_calories_burned) }}</strong> 大卡</li>
+        {% if current_user.bmi %}
+        <li>身体质量指数 (BMI): <strong>{{ current_user.bmi }}</strong> ({{ bmi_status }})</li>
+        {% endif %}
+    </ul>
+
+    <hr>
+
+    <h4>健康建议</h4>
+    {% if advice_list %}
+        <ul>
+        {% for advice in advice_list %}
+            <li>{{ advice }}</li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>暂无建议。</p>
+    {% endif %}
+
+    <hr>
+
+    <!-- 数据分析部分 -->
+    <h4>多维数据分析</h4>
+
+    <!-- 睡眠预测分析 -->
+    <div class="analysis-section">
+        <h5>睡眠质量预测分析</h5>
+        {% if sleep_prediction and sleep_prediction.success %}
+            <div class="analysis-visualization">
+                <img src="data:image/png;base64,{{ sleep_prediction.plot }}" alt="睡眠预测图表" style="max-width: 100%;">
+            </div>
+            <div class="analysis-details">
+                <p>基于你的历史睡眠数据，我们使用线性回归模型预测了未来7天的睡眠趋势。</p>
+                <p>预测准确度 (R²): <strong>{{ "%.2f"|format(sleep_prediction.r2_score) }}</strong></p>
+                <p>预测结果:</p>
+                <ul>
+                    {% for i in range(sleep_prediction.prediction|length) %}
+                        <li>{{ sleep_prediction.prediction_dates[i] }}: <strong>{{ "%.2f"|format(sleep_prediction.prediction[i]) }}</strong> 小时</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% else %}
+            <p>{{ sleep_prediction.message if sleep_prediction else "无法生成睡眠预测，请确保你有足够的睡眠记录。" }}</p>
+        {% endif %}
+    </div>
+
+    <!-- 运动与睡眠相关性分析 -->
+    <div class="analysis-section">
+        <h5>运动与睡眠相关性分析</h5>
+        {% if correlation_analysis and correlation_analysis.success %}
+            <div class="analysis-visualization">
+                <img src="data:image/png;base64,{{ correlation_analysis.plot }}" alt="相关性分析图表" style="max-width: 100%;">
+            </div>
+            <div class="analysis-details">
+                <p>我们分析了你的运动时长与睡眠质量之间的关系。</p>
+                <p>相关系数: <strong>{{ "%.2f"|format(correlation_analysis.correlation) }}</strong></p>
+                <p>分析结论: <strong>{{ correlation_analysis.interpretation }}</strong></p>
+                <p>数据点数量: <strong>{{ correlation_analysis.data_points }}</strong></p>
+            </div>
+        {% else %}
+            <p>{{ correlation_analysis.message if correlation_analysis else "无法生成相关性分析，请确保你有足够的运动和睡眠记录。" }}</p>
+        {% endif %}
+    </div>
+
+    <hr>
+
+    <!-- 获取 DeepSeek 建议按钮 -->
+    <button id="get-deepseek-advice">获取 DeepSeek 健康评估建议</button>
+
+    <!-- 加载提示与动画 -->
+    <div id="loading-indicator" style="display: none; margin-top: 1em;">
+        <span>正在获取建议，请稍候...</span>
+        <span class="spinner" style="
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            margin-left: 8px;
+            border: 2px solid #ccc;
+            border-top: 2px solid #4CAF50;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;"></span>
+    </div>
+
+    <!-- 渲染 DeepSeek 建议内容 -->
+    <div id="deepseek-advice-container" style="margin-top: 1em;"></div>
+
+    <div class="main-footer">
+        <small>报告生成时间: {{ report_time.strftime('%Y-%m-%d %H:%M:%S') }} (北京时间)</small>
+    </div>
+</article>
+
+<!-- 添加样式 -->
+<style>
+    .analysis-section {
+        margin-bottom: 2em;
+        padding: 1em;
+        background-color: #f9f9f9;
+        border-radius: 5px;
+    }
+    .analysis-visualization {
+        margin-bottom: 1em;
+        text-align: center;
+    }
+    .analysis-details {
+        font-size: 0.9em;
+    }
+</style>
+
+<!-- 引入 marked.js 用于渲染 Markdown -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+<!-- 加载动画样式 -->
+<style>
+@keyframes spin {
+    0%   { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+</style>
+
+<!-- 异步获取建议的脚本 -->
+<script>
+document.getElementById('get-deepseek-advice').addEventListener('click', async function () {
+    const container = document.getElementById('deepseek-advice-container');
+    const loading = document.getElementById('loading-indicator');
+
+    // 清空内容 + 显示加载动画
+    container.innerHTML = '';
+    loading.style.display = 'block';
+
+    try {
+        const response = await fetch('/get_deepseek_advice', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            const markdownHtml = marked.parse(data.advice);
+            container.innerHTML = markdownHtml;
+        } else {
+            container.innerHTML = `<p>获取建议失败，错误码: ${response.status}</p>`;
+        }
+    } catch (error) {
+        container.innerHTML = `<p>发生错误：${error}</p>`;
+    } finally {
+        loading.style.display = 'none';
+    }
+});
+</script>
+{% endblock %}

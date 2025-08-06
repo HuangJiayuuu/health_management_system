@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block content %}
+<article class="main-card">
+    <h2 class="main-title">添加新睡眠记录</h2>
+    <form action="{{ url_for('sleep') }}" method="post" novalidate>
+        {{ form.hidden_tag() }}
+        <p>
+            {{ form.sleep_time.label }}<br>
+            {{ form.sleep_time(size=32, id="sleep_time_picker") }}
+        </p>
+        <p>
+            {{ form.wakeup_time.label }}<br>
+            {{ form.wakeup_time(size=32, id="wakeup_time_picker") }}
+        </p>
+        <p>{{ form.submit() }}</p>
+    </form>
+    <hr>
+    <h2>睡眠图表</h2>
+    <div id="sleep_bar_chart" style="width:100%;max-width:800px;height:480px;margin:0 auto 2rem auto;"></div>
+    <div style="text-align:center;margin-bottom:1.5rem;">
+        <span style="font-size:1.1rem;">本周平均睡眠时长：<b>{{ avg_sleep }} 小时</b></span>
+        {% if target_sleep_hours %}
+        <span style="margin-left:2em;font-size:1.1rem;">目标：<b>{{ target_sleep_hours }} 小时</b></span>
+        {% endif %}
+    </div>
+    <h2>历史睡眠记录</h2>
+    {% for record in sleep_records %}
+    <article style="padding: 0.75rem 1rem;">
+        <div class="grid" style="grid-template-columns: 1fr auto; align-items: center; gap: 1rem;">
+            <p style="margin: 0;">从 {{ record.sleep_time.strftime('%Y-%m-%d %H:%M') }} 到 {{ record.wakeup_time.strftime('%Y-%m-%d %H:%M') }} - 时长: {{ "%.2f"|format(record.duration) }} 小时</p>
+            <form action="{{ url_for('delete_sleep', record_id=record.id) }}" method="post" onsubmit="return confirm('你确定要删除这条记录吗？');" style="margin: 0;">
+                <button type="submit" class="secondary outline" style="margin: 0; padding: 0.25rem 0.5rem; font-size: 0.8rem;">删除</button>
+            </form>
+        </div>
+    </article>
+    {% else %}
+    <p>你还没有任何睡眠记录。</p>
+    {% endfor %}
+</article>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<script>
+// 睡眠柱状图数据
+var sleepDates = {{ sleep_dates|tojson|safe }};
+var sleepDurations = {{ sleep_durations|tojson|safe }};
+var sleepTimes = {{ sleep_times|tojson|safe }};
+var wakeupTimes = {{ wakeup_times|tojson|safe }};
+var avgSleep = {{ avg_sleep|tojson|safe }};
+var targetSleep = {{ target_sleep_hours|tojson|safe }};
+var markLineData = [];
+if (avgSleep) {
+    markLineData.push({
+        yAxis: avgSleep,
+        lineStyle: { color: '#43a047', type: 'dashed', width: 2 },
+        label: { formatter: '平均: ' + avgSleep + 'h' },
+        tooltip: { show: true, trigger: 'item', formatter: '本周平均睡眠时长: ' + avgSleep + ' 小时' }
+    });
+}
+if (targetSleep) {
+    markLineData.push({
+        yAxis: targetSleep,
+        lineStyle: { color: '#ec9c4a', type: 'solid', width: 2 },
+        label: { formatter: '目标: ' + targetSleep + 'h' },
+        tooltip: { show: true, trigger: 'item', formatter: '目标睡眠时长: ' + targetSleep + ' 小时' }
+    });
+}
+// 生成多段 series
+var series = [];
+var maxSegments = Math.max.apply(null, sleepDurations.map(x => x.length));
+for (var seg = 0; seg < maxSegments; seg++) {
+    series.push({
+        name: '睡眠段' + (seg+1),
+        type: 'bar',
+        stack: 'sleep',
+        barWidth: '55%',
+        data: sleepDurations.map(function(day, i){ return day[seg] || 0; }),
+        itemStyle: { borderRadius: [6, 6, 0, 0] },
+        label: {
+            show: true,
+            position: 'top',
+            formatter: function(params) {
+                if (params.value > 0) {
+                    var segIdx = params.seriesIndex;
+                    return sleepDurations[params.dataIndex][segIdx] + 'h';
+                }
+                return '';
+            },
+            fontSize: 13
+        }
+    });
+}
+var sleepBar = echarts.init(document.getElementById('sleep_bar_chart'));
+sleepBar.setOption({
+    tooltip: {
+        trigger: 'axis',
+        axisPointer: { type: 'shadow' },
+        formatter: function(params) {
+            var idx = params[0].dataIndex;
+            var html = sleepDates[idx] + '<br/>';
+            for (var i = 0; i < sleepDurations[idx].length; i++) {
+                html += '第' + (i+1) + '段: ' + sleepTimes[idx][i] + ' ~ ' + wakeupTimes[idx][i] + ' (' + sleepDurations[idx][i] + 'h)<br/>';
+            }
+            return html;
+        }
+    },
+    xAxis: {
+        type: 'category',
+        data: sleepDates,
+        axisTick: { alignWithLabel: true },
+        axisLabel: { fontSize: 16 }
+    },
+    yAxis: {
+        type: 'value',
+        name: '小时',
+        min: 0,
+        max: 12,
+        axisLabel: { fontSize: 16 }
+    },
+    series: series.map(function(s, i){
+        if (i === 0) {
+            s.itemStyle.color = '#1976d2';
+            // 只在第一个系列添加标记线
+            s.markLine = {
+                symbol: 'none',
+                data: markLineData,
+                emphasis: { disabled: false }
+            };
+        } else if (i === 1) {
+            s.itemStyle.color = '#64b5f6';
+        } else {
+            s.itemStyle.color = '#90caf9';
+        }
+        return s;
+    }),
+    grid: { left: 60, right: 30, bottom: 60, top: 60 }
+});
+</script>
+<script>
+flatpickr("#sleep_time_picker", {
+    enableTime: true,
+    dateFormat: "Y-m-d H:i",
+    locale: "zh"
+});
+flatpickr("#wakeup_time_picker", {
+    enableTime: true,
+    dateFormat: "Y-m-d H:i",
+    locale: "zh"
+});
+</script>
+{% endblock %}

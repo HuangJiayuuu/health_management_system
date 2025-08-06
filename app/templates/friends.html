@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block content %}
+<article class="main-card">
+    <h2 class="main-title">我的好友</h2>
+    <p class="main-subtitle">点击好友用户名查看他们的健康状态。</p>
+
+    <hr>
+
+    <h2>好友列表</h2>
+    {% if friends %}
+        <ul>
+        {% for friend in friends %}
+            <li style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
+                <span>
+                    <a href="{{ url_for('friend_profile', friend_id=friend.id) }}">{{ friend.username }}</a>
+                </span>
+            </li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>你还没有添加任何好友。</p>
+    {% endif %}
+</article>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<!-- 若有需要添加的脚本，可在此处添加 -->
+{% endblock %}
