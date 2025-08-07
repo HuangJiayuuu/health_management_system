@@ -26,6 +26,53 @@
         <p>暂无建议。</p>
     {% endif %}
 
+    <hr>
+
+    <!-- 数据分析部分 -->
+    <h4>多维数据分析</h4>
+
+    <!-- 睡眠预测分析 -->
+    <div class="analysis-section">
+        <h5>睡眠质量预测分析</h5>
+        {% if sleep_prediction and sleep_prediction.success %}
+            <div class="analysis-visualization">
+                <img src="data:image/png;base64,{{ sleep_prediction.plot }}" alt="睡眠预测图表" style="max-width: 100%;">
+            </div>
+            <div class="analysis-details">
+                <p>基于你的历史睡眠数据，我们使用线性回归模型预测了未来7天的睡眠趋势。</p>
+                <p>预测准确度 (R²): <strong>{{ "%.2f"|format(sleep_prediction.r2_score) }}</strong></p>
+                <p>预测结果:</p>
+                <ul>
+                    {% for i in range(sleep_prediction.prediction|length) %}
+                        <li>{{ sleep_prediction.prediction_dates[i] }}: <strong>{{ "%.2f"|format(sleep_prediction.prediction[i]) }}</strong> 小时</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% else %}
+            <p>{{ sleep_prediction.message if sleep_prediction else "无法生成睡眠预测，请确保你有足够的睡眠记录。" }}</p>
+        {% endif %}
+    </div>
+
+    <!-- 运动与睡眠相关性分析 -->
+    <div class="analysis-section">
+        <h5>运动与睡眠相关性分析</h5>
+        {% if correlation_analysis and correlation_analysis.success %}
+            <div class="analysis-visualization">
+                <img src="data:image/png;base64,{{ correlation_analysis.plot }}" alt="相关性分析图表" style="max-width: 100%;">
+            </div>
+            <div class="analysis-details">
+                <p>我们分析了你的运动时长与睡眠质量之间的关系。</p>
+                <p>相关系数: <strong>{{ "%.2f"|format(correlation_analysis.correlation) }}</strong></p>
+                <p>分析结论: <strong>{{ correlation_analysis.interpretation }}</strong></p>
+                <p>数据点数量: <strong>{{ correlation_analysis.data_points }}</strong></p>
+            </div>
+        {% else %}
+            <p>{{ correlation_analysis.message if correlation_analysis else "无法生成相关性分析，请确保你有足够的运动和睡眠记录。" }}</p>
+        {% endif %}
+    </div>
+
+    <hr>
+
     <!-- 获取 DeepSeek 建议按钮 -->
     <button id="get-deepseek-advice">获取 DeepSeek 健康评估建议</button>
 
@@ -50,6 +97,23 @@
         <small>报告生成时间: {{ report_time.strftime('%Y-%m-%d %H:%M:%S') }} (北京时间)</small>
     </div>
 </article>
+
+<!-- 添加样式 -->
+<style>
+    .analysis-section {
+        margin-bottom: 2em;
+        padding: 1em;
+        background-color: #f9f9f9;
+        border-radius: 5px;
+    }
+    .analysis-visualization {
+        margin-bottom: 1em;
+        text-align: center;
+    }
+    .analysis-details {
+        font-size: 0.9em;
+    }
+</style>
 
 <!-- 引入 marked.js 用于渲染 Markdown -->
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
