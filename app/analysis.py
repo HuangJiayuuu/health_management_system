@@ -7,6 +7,7 @@ import io
 import base64
 from datetime import datetime, timedelta
 import matplotlib
+from .models import SleepRecord
 
 plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
@@ -201,3 +202,29 @@ def analyze_exercise_sleep_correlation(exercise_records, sleep_records):
         'slope': model.coef_[0],
         'data_points': len(merged_df)
     }
+
+def get_weekly_avg_sleep(user):
+    """
+    计算本周（周一到今天）平均睡眠时长（小时）。
+    :param user: User对象
+    :return: float, 平均睡眠时长，保留两位小数
+    """
+    from datetime import datetime, timedelta
+    today = datetime.utcnow().date()
+    monday = today - timedelta(days=today.weekday())
+    days_so_far = (today - monday).days + 1
+    # 只统计醒来日期在本周的记录
+    sleep_records = user.sleep_records.filter(
+        SleepRecord.wakeup_time >= datetime.combine(monday, datetime.min.time()),
+        SleepRecord.wakeup_time < datetime.combine(today + timedelta(days=1), datetime.min.time())
+    ).all()
+    # 归属到醒来的那一天
+    sleep_segments = {monday + timedelta(days=i): [] for i in range(days_so_far)}
+    for record in sleep_records:
+        assign_date = record.wakeup_time.date()
+        if assign_date in sleep_segments:
+            sleep_segments[assign_date].append(record.duration)
+    # 计算每天总时长
+    daily_totals = [sum(sleep_segments[d]) for d in sleep_segments]
+    avg_sleep = round(sum(daily_totals) / days_so_far, 2) if days_so_far > 0 else 0
+    return avg_sleep

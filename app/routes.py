@@ -14,7 +14,7 @@ import os
 import requests
 from flask import session, Flask
 from sqlalchemy import desc
-from app.analysis import generate_sleep_prediction, analyze_exercise_sleep_correlation
+from app.analysis import generate_sleep_prediction, analyze_exercise_sleep_correlation, get_weekly_avg_sleep
 
 @app.route('/')
 @app.route('/index')
@@ -35,12 +35,7 @@ def index():
     if user_goal:
         # Sleep progress
         if user_goal.target_sleep_hours:
-            sleep_records = current_user.sleep_records.filter(
-                SleepRecord.sleep_time >= datetime.combine(monday, datetime.min.time()),
-                SleepRecord.sleep_time < datetime.combine(today + timedelta(days=1), datetime.min.time())
-            ).all()
-            total_sleep = sum(r.duration for r in sleep_records)
-            avg_sleep = total_sleep / days_so_far if days_so_far > 0 else 0
+            avg_sleep = get_weekly_avg_sleep(current_user)
             progress_data['sleep'] = {
                 'current': avg_sleep,
                 'target': user_goal.target_sleep_hours,
@@ -138,7 +133,8 @@ def index():
                            general_goal=user_goal, 
                            general_progress=progress_data,
                            exercise_progress_list=exercise_progress_list,
-                           alert_messages=alert_messages)
+                           alert_messages=alert_messages,
+                           avg_sleep=get_weekly_avg_sleep(current_user))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -326,7 +322,7 @@ def sleep():
     sleep_times = [[seg['sleep_time'] for seg in sleep_segments[d]] for d in last_7_days]
     wakeup_times = [[seg['wakeup_time'] for seg in sleep_segments[d]] for d in last_7_days]
     # 只用已过天数做分母
-    avg_sleep = round(sum([sum(day) for day in sleep_durations[:days_so_far]]) / days_so_far, 2) if days_so_far > 0 else 0
+    avg_sleep = get_weekly_avg_sleep(current_user)
     target_sleep_hours = current_user.goal.target_sleep_hours if current_user.goal and current_user.goal.target_sleep_hours else None
     return render_template('sleep.html', title='睡眠', form=form, sleep_records=sleep_records, sleep_dates=sleep_dates, sleep_durations=sleep_durations, avg_sleep=avg_sleep, target_sleep_hours=target_sleep_hours, sleep_times=sleep_times, wakeup_times=wakeup_times)
 
@@ -464,7 +460,8 @@ def report():
     diet_records = current_user.diet_records.filter(DietRecord.timestamp >= one_week_ago).all()
 
     total_sleep_hours = sum(r.duration for r in sleep_records)
-    avg_sleep = total_sleep_hours / 7 if sleep_records else 0
+    # avg_sleep = total_sleep_hours / 7 if sleep_records else 0
+    avg_sleep = get_weekly_avg_sleep(current_user)
 
     total_calories_burned = sum(r.calories_burned for r in exercise_records)
     avg_calories_burned = total_calories_burned / 7 if exercise_records else 0
@@ -477,7 +474,7 @@ def report():
         advice_list.append("你最近一周还没有任何记录，快去添加一些数据来生成你的专属健康报告吧！")
     else:
         if avg_sleep > 0 and avg_sleep < 7:
-            advice_list.append("你的周平均睡眠时长似乎不足7小时，请注意保证充足休息。")
+            advice_list.append("你的周平均睡眠时长似乎不够7小时，请注意保证充足休息。")
         elif avg_sleep > 9:
             advice_list.append("你的周平均睡眠时长超过9小时，如非特殊情况，需警惕睡眠过多。")
         else:
